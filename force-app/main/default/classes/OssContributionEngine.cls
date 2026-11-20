@@ -132,7 +132,7 @@ public with sharing class OssContributionEngine {
       }
       c.Last_Step_At__c = Datetime.now();
       toUpsert.add(c);
-    } else if (cfg.enabled) {
+    } else if (cfg.enabled && canContribute()) {
       toUpsert.addAll(scoutOrPromote(cfg));
     }
 
@@ -174,6 +174,37 @@ public with sharing class OssContributionEngine {
   }
 
   // ---------------------------------------------------------------------- Scout
+
+  /**
+   * Forking other people's repos and opening upstream PRs needs a classic token with the
+   * public_repo (or repo) scope; fine-grained tokens limited to owned repos cannot do it.
+   */
+  @TestVisible
+  private static Boolean canContribute() {
+    AgentHttp.Result me = AgentHttp.github('GET', '/user', null);
+    String scopes = me.headers.get('x-oauth-scopes');
+    Boolean ok =
+      me.ok() &&
+      scopes != null &&
+      (scopes.contains('public_repo') || scopes.contains('repo'));
+    if (!ok) {
+      Integer warnedToday = [
+        SELECT COUNT()
+        FROM Agent_Event__c
+        WHERE Event_Type__c = 'Waiting for token' AND Occurred_At__c = TODAY
+        WITH SECURITY_ENFORCED
+      ];
+      if (warnedToday == 0) {
+        AgentEventLogger.warn(
+          'Scout',
+          'Waiting for token',
+          'Open-source missions are paused: the GitHub token needs the public_repo scope to fork and open upstream PRs.',
+          null
+        );
+      }
+    }
+    return ok;
+  }
 
   @TestVisible
   private static List<OSS_Contribution__c> scoutOrPromote(AgentConfig cfg) {

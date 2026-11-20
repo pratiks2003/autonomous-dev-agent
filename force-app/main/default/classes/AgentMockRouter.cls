@@ -21,6 +21,11 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
     res.setHeader('Content-Type', 'application/json');
     res.setStatusCode(200);
 
+    if (method == 'GET' && url.endsWith('/user')) {
+      res.setHeader('X-OAuth-Scopes', 'public_repo, workflow');
+      res.setBody('{"login":"pratiks2003"}');
+      return res;
+    }
     if (url.contains('/search/issues')) {
       res.setBody(
         '{"items":[' +
