@@ -286,6 +286,11 @@
     <field>Agent_Event__c.Public_Detail__c</field>
     <readable>true</readable>
   </fieldPermissions>
+  <fieldPermissions>
+    <editable>false</editable>
+    <field>OSS_Contribution__c.Review_Notes__c</field>
+    <readable>true</readable>
+  </fieldPermissions>
   <hasActivationRequired>false</hasActivationRequired>
     <label>Agent Command Center Viewer</label>
     <objectPermissions>

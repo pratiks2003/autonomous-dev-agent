@@ -1,4 +1,5 @@
 import { LightningElement, api } from "lwc";
+import { computeSchedule } from "c/agentSchedule";
 
 const IST_MS = 330 * 60000;
 const ACTIVE_WINDOW_MS = 20 * 60000;
@@ -520,7 +521,12 @@ export default class AgentSystemMap extends LightningElement {
     return out;
   }
 
+  get schedule() {
+    return computeSchedule(this.data, this.now);
+  }
+
   get nodes() {
+    const sched = this.schedule;
     const focus = this.focus;
     const any = focus.nodes.size > 0;
     const active = this.activeAgents;
@@ -540,9 +546,39 @@ export default class AgentSystemMap extends LightningElement {
         cls: `node node-${n.zone}${on ? " node-on" : any ? " node-dim" : ""}${live ? " node-live" : ""}${n.big ? " node-big" : ""}`,
         emojiX: -w / 2 + 22,
         textX: -w / 2 + 42,
-        showHalo: on
+        showHalo: on,
+        ...this.pill(n, sched, w, h)
       };
     });
+  }
+
+  pill(n, sched, w, h) {
+    const sc = n.agent ? sched[n.agent] : null;
+    if (!sc) return { hasPill: false };
+    const live = sc.state === "working";
+    const label = live
+      ? "● running"
+      : sc.nextAt
+        ? `⏱ ${sc.countdown}`
+        : "waiting";
+    const pw = Math.max(64, label.length * 7 + 16);
+    return {
+      hasPill: true,
+      pillLabel: label,
+      pillX: -pw / 2,
+      pillY: h / 2 + 6,
+      pillW: pw,
+      pillTextY: h / 2 + 19,
+      pillCls: live ? "pill pill-live" : sc.nextAt ? "pill" : "pill pill-idle",
+      clickable: true
+    };
+  }
+
+  handleNodeClick(event) {
+    const name = event.currentTarget.dataset.agent;
+    if (name) {
+      this.dispatchEvent(new CustomEvent("agentselect", { detail: { name } }));
+    }
   }
 
   /* ------------------------------------------------------------ captions & cards */

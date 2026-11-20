@@ -98,7 +98,13 @@
           </template>
 
           <template for:each={nodes} for:item="n">
-            <g key={n.key} transform={n.transform} class={n.cls}>
+            <g
+              key={n.key}
+              transform={n.transform}
+              class={n.cls}
+              data-agent={n.agent}
+              onclick={handleNodeClick}
+            >
               <template lwc:if={n.showHalo}>
                 <circle r={n.haloR} class="halo"></circle>
               </template>
@@ -115,6 +121,24 @@
               </text>
               <text x={n.textX} y="-3" class="node-label">{n.label}</text>
               <text x={n.textX} y="14" class="node-sub">{n.sub}</text>
+              <template lwc:if={n.hasPill}>
+                <rect
+                  x={n.pillX}
+                  y={n.pillY}
+                  width={n.pillW}
+                  height="19"
+                  rx="9.5"
+                  class={n.pillCls}
+                ></rect>
+                <text
+                  x="0"
+                  y={n.pillTextY}
+                  text-anchor="middle"
+                  class="pill-text"
+                >
+                  {n.pillLabel}
+                </text>
+              </template>
             </g>
           </template>
         </svg>
@@ -125,6 +149,7 @@
               ><i class="lg lg-live"></i>Agent active in the last 20 min</span
             >
             <span><i class="lg lg-flow"></i>Data flowing</span>
+            <span>⏱ next run · click an agent for details</span>
             <span class="active-names">{activeLabel}</span>
           </div>
         </template>

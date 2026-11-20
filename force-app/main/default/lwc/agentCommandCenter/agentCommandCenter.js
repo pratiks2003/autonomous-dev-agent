@@ -5,6 +5,7 @@ import getDashboard from "@salesforce/apex/AgentCommandCenterController.getDashb
 import triggerManualRun from "@salesforce/apex/AgentCommandCenterController.triggerManualRun";
 import enqueueCustomQuest from "@salesforce/apex/AgentCommandCenterController.enqueueCustomQuest";
 import askMissionControl from "@salesforce/apex/AgentCommandCenterController.askMissionControl";
+import { computeSchedule } from "c/agentSchedule";
 
 const STAGES = [
   { key: "context", label: "Context", hint: "GraphQL repo scan" },
@@ -97,6 +98,7 @@ export default class AgentCommandCenter extends LightningElement {
   questType = "Feature";
   questPriority = "1";
   activeTab = "command";
+  selectedAgent;
   chatOpen = false;
   chatInput = "";
   chatBusy = false;
@@ -569,8 +571,10 @@ export default class AgentCommandCenter extends LightningElement {
   // ------------------------------------------------------------ squad
   get squad() {
     const now = Date.now();
+    const sched = this.schedule;
     return (this.data?.squad || []).map((a) => {
       const meta = AGENT_META[a.name] || { emoji: "🤖", color: "#8b949e" };
+      const sc = sched[a.name] || {};
       const working =
         a.lastAt && now - new Date(a.lastAt).getTime() < 20 * 60000;
       return {
@@ -585,7 +589,20 @@ export default class AgentCommandCenter extends LightningElement {
             : "Standing by",
         statusClass: working ? "agent-status live" : "agent-status",
         last: a.lastMessage || "No actions yet.",
-        countLabel: `${a.actions24h || 0} actions · 24h`
+        countLabel: `${a.actions24h || 0} actions · 24h`,
+        cdClass:
+          sc.state === "working"
+            ? "cd cd-live"
+            : sc.nextAt
+              ? "cd"
+              : "cd cd-idle",
+        cdLabel:
+          sc.state === "working"
+            ? "● Running now"
+            : sc.nextAt
+              ? `⏱ ${sc.countdown}`
+              : "Waiting for work",
+        cdAt: sc.state !== "working" && sc.at ? sc.at : ""
       };
     });
   }
@@ -622,6 +639,9 @@ export default class AgentCommandCenter extends LightningElement {
         ...c,
         avatar: `https://avatars.githubusercontent.com/${owner}?size=80`,
         repoUrl: `https://github.com/${c.repo}`,
+        forkUrl: c.fork
+          ? `https://github.com/${c.fork}/tree/${c.branch || ""}`
+          : null,
         starLabel: this.fmt(c.stars || 0),
         statusLabel: OSS_LABEL[c.status] || c.status,
         statusClass: `oss-status oss-${(c.status || "").toLowerCase()}`,
@@ -744,6 +764,106 @@ export default class AgentCommandCenter extends LightningElement {
     } catch {
       // storage unavailable — tab choice simply isn't remembered
     }
+  }
+
+  // ------------------------------------------------------------ agent schedule & detail drawer
+  get schedule() {
+    // istTime changes every second, so this re-evaluates with the clock
+    return this.istTime ? computeSchedule(this.data, Date.now()) : {};
+  }
+
+  handleAgentClick(event) {
+    this.selectedAgent = event.currentTarget.dataset.name;
+  }
+  handleAgentKey(event) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      this.selectedAgent = event.currentTarget.dataset.name;
+    }
+  }
+  handleMapSelect(event) {
+    this.selectedAgent = event.detail.name;
+  }
+  closeDrawer() {
+    this.selectedAgent = undefined;
+  }
+  handleDrawerKey(event) {
+    if (event.key === "Escape") this.closeDrawer();
+  }
+
+  get drawer() {
+    const name = this.selectedAgent;
+    if (!name) return null;
+    const card = this.squad.find((a) => a.name === name);
+    if (!card) return null;
+    const sc = this.schedule[name] || {};
+    const d = this.data || {};
+    const contributions = this.oss;
+    const owners = {
+      Engineer: ["Selected", "Forked"],
+      Verifier: ["Fix_Ready", "Verifying"],
+      Reviewer: ["Verified"],
+      Publisher: ["Review_Passed", "PR_Open"]
+    };
+    let work = null;
+    if (owners[name]) {
+      work =
+        contributions.find((c) => owners[name].includes(c.status)) ||
+        contributions.find((c) => !["Discovered"].includes(c.status));
+    }
+    const radar =
+      name === "Scout"
+        ? contributions.filter(
+            (c) => c.status === "Discovered" || c.status === "Selected"
+          )
+        : [];
+    const shipped = (d.shipped || [])[0];
+    return {
+      ...card,
+      stateLabel:
+        sc.state === "working"
+          ? "Running now"
+          : sc.nextAt
+            ? "Scheduled"
+            : "Waiting",
+      stateClass:
+        sc.state === "working"
+          ? "dstate dstate-live"
+          : sc.nextAt
+            ? "dstate"
+            : "dstate dstate-idle",
+      countdown: sc.state === "working" ? "now" : sc.countdown || "—",
+      nextAt: sc.at ? `next run ${sc.at}` : "no scheduled run",
+      doing: sc.doing,
+      work,
+      hasWork: !!work,
+      workReview: work?.reviewNotes,
+      hasRadar: radar.length > 0,
+      radar,
+      isMaintainer: name === "Maintainer",
+      lastRunLabel: d.lastRun
+        ? `${d.lastRun.status.replace(/_/g, " ")} · ${d.lastRun.stage || ""}`
+        : "No runs yet",
+      lastQuest: d.lastRun?.questTitle || "—",
+      lastPrUrl: shipped?.prUrl,
+      lastPrLabel: shipped
+        ? `${shipped.title} (PR #${shipped.prNumber})`
+        : null,
+      isConcierge: name === "Concierge",
+      briefingHeadline: d.briefingHeadline,
+      briefing: this.briefingBullets,
+      isWatchdog: name === "Watchdog",
+      watchdogUrl: `${this.repoUrl}/actions/workflows/watchdog-failover.yml`,
+      recent: (card.recent || []).map((e) => ({
+        ...e,
+        time: e.at
+          ? `${this.dayLabel(e.at)} · ${istIso(e.at).substring(11, 16)} IST`
+          : "",
+        cls: `drow sev-${e.severity || "info"}`,
+        hasLink: !!e.link
+      })),
+      hasRecent: (card.recent || []).length > 0
+    };
   }
 
   // ------------------------------------------------------------ utils

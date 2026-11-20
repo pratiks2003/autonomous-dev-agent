@@ -258,6 +258,34 @@
   font-family: var(--sans);
 }
 
+/* ---------------- countdown pills ---------------- */
+.node[data-agent] {
+  cursor: pointer;
+}
+.node[data-agent]:hover .node-box {
+  stroke: #e6edf3;
+}
+.pill {
+  fill: #0d1117;
+  stroke: rgba(240, 246, 252, 0.25);
+}
+.pill-live {
+  fill: rgba(88, 166, 255, 0.18);
+  stroke: var(--blue);
+}
+.pill-idle {
+  stroke: rgba(240, 246, 252, 0.1);
+}
+.pill-text {
+  fill: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.node-dim .pill-text {
+  opacity: 0.6;
+}
+
 /* ---------------- legend & dots ---------------- */
 .legend-row {
   display: flex;

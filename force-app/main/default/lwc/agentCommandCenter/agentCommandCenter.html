@@ -88,7 +88,10 @@
     </template>
 
     <template lwc:if={isMapTab}>
-      <c-agent-system-map data={data}></c-agent-system-map>
+      <c-agent-system-map
+        data={data}
+        onagentselect={handleMapSelect}
+      ></c-agent-system-map>
     </template>
     <template lwc:else>
       <!-- ============ DAILY BRIEFING (Concierge) ============ -->
@@ -183,7 +186,16 @@
         </div>
         <div class="squad">
           <template for:each={squad} for:item="a">
-            <article key={a.key} class={a.cardClass}>
+            <article
+              key={a.key}
+              class={a.cardClass}
+              data-name={a.name}
+              onclick={handleAgentClick}
+              onkeydown={handleAgentKey}
+              role="button"
+              tabindex="0"
+              aria-label={a.name}
+            >
               <div class="agent-top">
                 <span class="avatar" style={a.avatarStyle}>{a.emoji}</span>
                 <div class="agent-id">
@@ -195,7 +207,11 @@
               </div>
               <p class="agent-role">{a.role}</p>
               <p class="agent-last">{a.last}</p>
-              <span class="agent-count">{a.countLabel}</span>
+              <div class="agent-foot">
+                <span class={a.cdClass}>{a.cdLabel}</span>
+                <span class="cd-at">{a.cdAt}</span>
+              </div>
+              <span class="agent-count">{a.countLabel} · tap for details</span>
             </article>
           </template>
         </div>
@@ -732,6 +748,200 @@
           {chatToggleLabel}
         </button>
       </div>
+    </template>
+
+    <!-- ============ AGENT DETAIL DRAWER ============ -->
+    <template lwc:if={drawer}>
+      <div class="drawer-backdrop" onclick={closeDrawer}></div>
+      <aside
+        class="drawer"
+        role="dialog"
+        aria-label="Agent details"
+        onkeydown={handleDrawerKey}
+        tabindex="-1"
+      >
+        <div class="drawer-head">
+          <span class="avatar" style={drawer.avatarStyle}>{drawer.emoji}</span>
+          <div class="drawer-id">
+            <span class="drawer-name">{drawer.name}</span>
+            <span class="agent-role">{drawer.role}</span>
+          </div>
+          <button class="drawer-close" onclick={closeDrawer} aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div class="drawer-status">
+          <span class={drawer.stateClass}
+            ><span class="pulse"></span>{drawer.stateLabel}</span
+          >
+          <div class="drawer-cd">
+            <span class="drawer-cd-num">{drawer.countdown}</span>
+            <span class="drawer-cd-at">{drawer.nextAt}</span>
+          </div>
+        </div>
+
+        <section class="dsec">
+          <div class="eyebrow">What it's up to</div>
+          <p class="ddoing">{drawer.doing}</p>
+        </section>
+
+        <template lwc:if={drawer.hasWork}>
+          <section class="dsec">
+            <div class="eyebrow">Current work</div>
+            <div class="dwork">
+              <div class="oss-top">
+                <img
+                  class="oss-avatar"
+                  src={drawer.work.avatar}
+                  alt=""
+                  loading="lazy"
+                />
+                <div class="oss-repo">
+                  <a href={drawer.work.repoUrl} target="_blank" rel="noopener"
+                    >{drawer.work.repo}</a
+                  >
+                  <span class="oss-meta"
+                    >★ {drawer.work.starLabel} · {drawer.work.language}</span
+                  >
+                </div>
+                <span class={drawer.work.statusClass}
+                  >{drawer.work.statusLabel}</span
+                >
+              </div>
+              <p class="oss-title">{drawer.work.title}</p>
+              <ol class="stepper">
+                <template for:each={drawer.work.steps} for:item="st">
+                  <li key={st.key} class={st.cls}>
+                    <span class="st-dot"></span
+                    ><span class="st-lbl">{st.label}</span>
+                  </li>
+                </template>
+              </ol>
+              <template lwc:if={drawer.work.summary}>
+                <div class="dlabel">Plan / fix summary</div>
+                <p class="dtext">{drawer.work.summary}</p>
+              </template>
+              <template lwc:if={drawer.workReview}>
+                <div class="dlabel">
+                  Reviewer notes · {drawer.work.reviewVerdict}
+                </div>
+                <pre class="dpre">{drawer.workReview}</pre>
+              </template>
+              <template lwc:if={drawer.work.skipReason}>
+                <div class="dlabel">Why it stopped</div>
+                <p class="dtext">{drawer.work.skipReason}</p>
+              </template>
+              <div class="card-links">
+                <template lwc:if={drawer.work.issueUrl}
+                  ><a href={drawer.work.issueUrl} target="_blank" rel="noopener"
+                    >issue {drawer.work.issueLabel}</a
+                  ></template
+                >
+                <template lwc:if={drawer.work.forkUrl}
+                  ><a href={drawer.work.forkUrl} target="_blank" rel="noopener"
+                    >fork {drawer.work.fork}</a
+                  ></template
+                >
+                <template lwc:if={drawer.work.verifyRunUrl}
+                  ><a
+                    href={drawer.work.verifyRunUrl}
+                    target="_blank"
+                    rel="noopener"
+                    >test run ↗</a
+                  ></template
+                >
+                <template lwc:if={drawer.work.prUrl}
+                  ><a
+                    href={drawer.work.prUrl}
+                    target="_blank"
+                    rel="noopener"
+                    class="pr"
+                    >{drawer.work.prLabel}</a
+                  ></template
+                >
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <template lwc:if={drawer.hasRadar}>
+          <section class="dsec">
+            <div class="eyebrow">On the radar</div>
+            <template for:each={drawer.radar} for:item="r">
+              <div key={r.id} class="dradar">
+                <a href={r.issueUrl} target="_blank" rel="noopener"
+                  >{r.repo}{r.issueLabel}</a
+                >
+                <span>{r.title}</span>
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <template lwc:if={drawer.isMaintainer}>
+          <section class="dsec">
+            <div class="eyebrow">Daily mission</div>
+            <div class="dkv">
+              <span>Last run</span><span>{drawer.lastRunLabel}</span>
+            </div>
+            <div class="dkv">
+              <span>Quest</span><span>{drawer.lastQuest}</span>
+            </div>
+            <template lwc:if={drawer.lastPrUrl}>
+              <div class="dkv">
+                <span>Latest PR</span
+                ><a href={drawer.lastPrUrl} target="_blank" rel="noopener"
+                  >{drawer.lastPrLabel}</a
+                >
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <template lwc:if={drawer.isConcierge}>
+          <section class="dsec">
+            <div class="eyebrow">Latest briefing</div>
+            <p class="ddoing">{drawer.briefingHeadline}</p>
+            <ul class="briefing-list">
+              <template for:each={drawer.briefing} for:item="b"
+                ><li key={b.id}>{b.text}</li></template
+              >
+            </ul>
+          </section>
+        </template>
+
+        <template lwc:if={drawer.isWatchdog}>
+          <section class="dsec">
+            <div class="eyebrow">Runs in GitHub Actions</div>
+            <a href={drawer.watchdogUrl} target="_blank" rel="noopener"
+              >Open the watchdog workflow ↗</a
+            >
+          </section>
+        </template>
+
+        <section class="dsec">
+          <div class="eyebrow">Recent actions</div>
+          <template lwc:if={drawer.hasRecent}>
+            <template for:each={drawer.recent} for:item="e">
+              <div key={e.id} class={e.cls}>
+                <span class="dtime">{e.time}</span>
+                <span class="dmsg">{e.message}</span>
+                <template lwc:if={e.hasLink}
+                  ><a href={e.link} target="_blank" rel="noopener"
+                    >open ↗</a
+                  ></template
+                >
+              </div>
+            </template>
+          </template>
+          <template lwc:else
+            ><p class="dtext">
+              No actions recorded in the last week.
+            </p></template
+          >
+        </section>
+      </aside>
     </template>
 
     <footer class="foot">

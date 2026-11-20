@@ -92,6 +92,8 @@ public with sharing class AgentCommandCenterController {
     public Datetime lastAt;
     @AuraEnabled
     public Integer actions24h = 0;
+    @AuraEnabled
+    public List<EventRow> recent = new List<EventRow>();
   }
 
   public class OssCard {
@@ -123,6 +125,20 @@ public with sharing class AgentCommandCenterController {
     public Integer score;
     @AuraEnabled
     public Datetime updatedAt;
+    @AuraEnabled
+    public String reviewVerdict;
+    @AuraEnabled
+    public String reviewNotes;
+    @AuraEnabled
+    public String verifyRunUrl;
+    @AuraEnabled
+    public String fork;
+    @AuraEnabled
+    public String branch;
+    @AuraEnabled
+    public Integer attempts;
+    @AuraEnabled
+    public String skipReason;
   }
 
   public class ChatReply {
@@ -196,6 +212,8 @@ public with sharing class AgentCommandCenterController {
     public Integer ossMerged = 0;
     @AuraEnabled
     public Integer ossRepos = 0;
+    @AuraEnabled
+    public Datetime lastPrOpenedAt;
     @AuraEnabled
     public Datetime generatedAt;
   }
@@ -448,6 +466,17 @@ public with sharing class AgentCommandCenterController {
         d.events.add(r);
       }
       AgentCard c = byName.get(e.Agent__c);
+      if (c != null && c.recent.size() < 6) {
+        EventRow rr = new EventRow();
+        rr.id = e.Id;
+        rr.agent = e.Agent__c;
+        rr.eventType = e.Event_Type__c;
+        rr.message = e.Message__c;
+        rr.link = e.Link__c;
+        rr.severity = e.Severity__c;
+        rr.at = e.Occurred_At__c;
+        c.recent.add(rr);
+      }
       if (c != null) {
         if (c.lastAt == null) {
           c.lastAt = e.Occurred_At__c;
@@ -477,7 +506,15 @@ public with sharing class AgentCommandCenterController {
         Test_Result__c,
         Fix_Summary__c,
         Feasibility_Score__c,
-        LastModifiedDate
+        LastModifiedDate,
+        Review_Verdict__c,
+        Review_Notes__c,
+        Verify_Run_Url__c,
+        Fork__c,
+        Branch__c,
+        Attempts__c,
+        Skip_Reason__c,
+        Opened_At__c
       FROM OSS_Contribution__c
       WITH SECURITY_ENFORCED
       ORDER BY LastModifiedDate DESC
@@ -492,6 +529,13 @@ public with sharing class AgentCommandCenterController {
       }
       if (c.Status__c == 'PR_Open' || c.Status__c == 'Merged') {
         repos.add(c.Repo__c);
+      }
+      if (
+        c.Opened_At__c != null &&
+        (d.lastPrOpenedAt == null ||
+        c.Opened_At__c > d.lastPrOpenedAt)
+      ) {
+        d.lastPrOpenedAt = c.Opened_At__c;
       }
       if (d.contributions.size() >= 9 || c.Status__c == 'Skipped') {
         continue;
@@ -515,6 +559,15 @@ public with sharing class AgentCommandCenterController {
         ? null
         : c.Feasibility_Score__c.intValue();
       o.updatedAt = c.LastModifiedDate;
+      o.reviewVerdict = c.Review_Verdict__c;
+      o.reviewNotes = c.Review_Notes__c == null
+        ? null
+        : c.Review_Notes__c.abbreviate(2500);
+      o.verifyRunUrl = c.Verify_Run_Url__c;
+      o.fork = c.Fork__c;
+      o.branch = c.Branch__c;
+      o.attempts = c.Attempts__c == null ? 0 : c.Attempts__c.intValue();
+      o.skipReason = c.Skip_Reason__c;
       d.contributions.add(o);
     }
     d.ossRepos = repos.size();
