@@ -153,4 +153,70 @@ private class AgentCommandCenterControllerTest {
       }
     }
   }
+
+  @IsTest
+  static void squadFeedOpenSourceAndChat() {
+    User v = viewer();
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+      insert new List<Agent_Event__c>{
+        new Agent_Event__c(
+          Agent__c = 'Scout',
+          Event_Type__c = 'Selected issue',
+          Message__c = 'Picked acme/widgets#7',
+          Occurred_At__c = Datetime.now()
+        ),
+        new Agent_Event__c(
+          Agent__c = 'Concierge',
+          Event_Type__c = 'Daily Briefing',
+          Message__c = 'Big day',
+          Public_Detail__c = '- shipped',
+          Occurred_At__c = Datetime.now()
+        )
+      };
+      insert new List<OSS_Contribution__c>{
+        new OSS_Contribution__c(
+          Repo__c = 'acme/widgets',
+          Issue_Number__c = 7,
+          Issue_Title__c = 'Fix',
+          Status__c = 'PR_Open',
+          PR_Number__c = 3
+        ),
+        new OSS_Contribution__c(
+          Repo__c = 'foo/bar',
+          Issue_Number__c = 1,
+          Issue_Title__c = 'Fix2',
+          Status__c = 'Forked'
+        ),
+        new OSS_Contribution__c(
+          Repo__c = 'baz/qux',
+          Issue_Number__c = 2,
+          Issue_Title__c = 'Fix3',
+          Status__c = 'Merged'
+        )
+      };
+    }
+    AgentCommandCenterController.Dashboard d;
+    System.runAs(v) {
+      d = AgentCommandCenterController.getDashboard();
+    }
+    Assert.areEqual('Big day', d.briefingHeadline);
+    Assert.areEqual('- shipped', d.briefingBody);
+    Assert.areEqual(8, d.squad.size());
+    Assert.areEqual(1, d.squad[1].actions24h, 'Scout counted');
+    Assert.areEqual(1, d.events.size(), 'briefing excluded from feed');
+    Assert.areEqual(1, d.ossOpen);
+    Assert.areEqual(1, d.ossInFlight);
+    Assert.areEqual(1, d.ossMerged);
+    Assert.areEqual(2, d.ossRepos);
+    if (!AgentCommandCenterController.isAdmin()) {
+      grantAdmin();
+    }
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+      Assert.areEqual(
+        'test-session',
+        AgentCommandCenterController.askMissionControl('status?', null)
+          .sessionId
+      );
+    }
+  }
 }

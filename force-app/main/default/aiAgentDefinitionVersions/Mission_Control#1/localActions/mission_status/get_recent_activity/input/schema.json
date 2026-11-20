@@ -1,0 +1,14 @@
+{
+  "required" : [ "hours" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "hours" : {
+      "title" : "Hours",
+      "description" : "How many hours back to look. Use 24 if the user does not say.",
+      "lightning:type" : "lightning__integerType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

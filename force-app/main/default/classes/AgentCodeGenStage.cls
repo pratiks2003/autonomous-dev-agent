@@ -42,6 +42,18 @@ public with sharing class AgentCodeGenStage implements Queueable, Database.Allow
         32000
       )
     );
+    AgentEventLogger.info(
+      'Engineer',
+      'Code written',
+      'Wrote ' +
+        gen.get('filePath') +
+        ' + ' +
+        gen.get('unitTestPath') +
+        ' for quest #' +
+        state.issueNumber,
+      null
+    );
+    AgentEventLogger.flush();
     DailyAgentOrchestrator.chain(new AgentShipStage(state));
   }
 }

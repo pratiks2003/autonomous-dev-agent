@@ -4,6 +4,7 @@ import isGuest from "@salesforce/user/isGuest";
 import getDashboard from "@salesforce/apex/AgentCommandCenterController.getDashboard";
 import triggerManualRun from "@salesforce/apex/AgentCommandCenterController.triggerManualRun";
 import enqueueCustomQuest from "@salesforce/apex/AgentCommandCenterController.enqueueCustomQuest";
+import askMissionControl from "@salesforce/apex/AgentCommandCenterController.askMissionControl";
 
 const STAGES = [
   { key: "context", label: "Context", hint: "GraphQL repo scan" },
@@ -32,6 +33,43 @@ const MONTHS = [
 ];
 const QUEST_TYPES = ["Feature", "Unit_Test", "Refactor", "Docs", "Challenge"];
 const CELL = 13;
+const AGENT_META = {
+  Concierge: { emoji: "🧭", color: "#f0b429" },
+  Scout: { emoji: "🔎", color: "#58a6ff" },
+  Engineer: { emoji: "🛠️", color: "#39d353" },
+  Verifier: { emoji: "🧪", color: "#2dd4bf" },
+  Reviewer: { emoji: "🔍", color: "#f778ba" },
+  Publisher: { emoji: "🚀", color: "#a371f7" },
+  Maintainer: { emoji: "🧰", color: "#ff8a00" },
+  Watchdog: { emoji: "🛟", color: "#8b949e" }
+};
+const OSS_STEPS = ["Scout", "Fork", "Fix", "Tests", "Review", "PR", "Merged"];
+const OSS_INDEX = {
+  Discovered: 0,
+  Selected: 1,
+  Forked: 2,
+  Fix_Ready: 3,
+  Verifying: 3,
+  Verified: 4,
+  Review_Passed: 5,
+  PR_Open: 6,
+  Merged: 7,
+  Closed: 6,
+  Failed: -1
+};
+const OSS_LABEL = {
+  Discovered: "On the radar",
+  Selected: "Selected by Scout",
+  Forked: "Engineer working",
+  Fix_Ready: "Fix committed",
+  Verifying: "Tests running",
+  Verified: "Tests passed",
+  Review_Passed: "Approved · queued to publish",
+  PR_Open: "PR open upstream",
+  Merged: "Merged 🎉",
+  Closed: "Closed by maintainer",
+  Failed: "Abandoned"
+};
 const REFRESH_MS = 60000;
 const IST_OFFSET_MS = 330 * 60000; // India Standard Time = UTC+05:30 (no DST)
 
@@ -58,6 +96,17 @@ export default class AgentCommandCenter extends LightningElement {
   questDescription = "";
   questType = "Feature";
   questPriority = "1";
+  chatOpen = false;
+  chatInput = "";
+  chatBusy = false;
+  chatSession;
+  chatMessages = [
+    {
+      id: "w",
+      cls: "msg msg-agent",
+      text: "Mission Control online. Ask me for a status briefing, to run today's mission, queue a quest, or take on an open-source issue."
+    }
+  ];
   _clock;
   _refresh;
 
@@ -482,6 +531,192 @@ export default class AgentCommandCenter extends LightningElement {
     setTimeout(() => {
       this.toast = undefined;
     }, 4500);
+  }
+
+  // ------------------------------------------------------------ briefing
+  get hasBriefing() {
+    return !!this.data?.briefingHeadline;
+  }
+  get briefingHeadline() {
+    return this.data?.briefingHeadline;
+  }
+  get briefingBullets() {
+    return (this.data?.briefingBody || "")
+      .split("\n")
+      .map((l) =>
+        l
+          .replace(/^\s*[-*•]\s*/, "")
+          .replace(/\*\*/g, "")
+          .trim()
+      )
+      .filter((l) => l.length)
+      .map((text, i) => ({ id: `b${i}`, text }));
+  }
+  get briefingTime() {
+    return this.data?.briefingAt
+      ? `${istIso(this.data.briefingAt).substring(11, 16)} IST · ${this.ago(this.data.briefingAt)}`
+      : "";
+  }
+
+  // ------------------------------------------------------------ squad
+  get squad() {
+    const now = Date.now();
+    return (this.data?.squad || []).map((a) => {
+      const meta = AGENT_META[a.name] || { emoji: "🤖", color: "#8b949e" };
+      const working =
+        a.lastAt && now - new Date(a.lastAt).getTime() < 20 * 60000;
+      return {
+        ...a,
+        emoji: meta.emoji,
+        avatarStyle: `--c:${meta.color}`,
+        cardClass: working ? "agent agent-working" : "agent",
+        statusLabel: working
+          ? "Working"
+          : a.lastAt
+            ? `Idle · ${this.ago(a.lastAt)}`
+            : "Standing by",
+        statusClass: working ? "agent-status live" : "agent-status",
+        last: a.lastMessage || "No actions yet.",
+        countLabel: `${a.actions24h || 0} actions · 24h`
+      };
+    });
+  }
+  get workingCount() {
+    return this.squad.filter((a) => a.cardClass.includes("working")).length;
+  }
+
+  // ------------------------------------------------------------ feed
+  get feed() {
+    return (this.data?.events || []).map((e) => {
+      const meta = AGENT_META[e.agent] || { emoji: "🤖", color: "#8b949e" };
+      return {
+        ...e,
+        emoji: meta.emoji,
+        dotStyle: `--c:${meta.color}`,
+        rowClass: `feed-row sev-${e.severity || "info"}`,
+        time: e.at ? istIso(e.at).substring(11, 16) : "",
+        day: e.at ? this.dayLabel(e.at) : "",
+        hasLink: !!e.link
+      };
+    });
+  }
+  get hasFeed() {
+    return this.feed.length > 0;
+  }
+
+  // ------------------------------------------------------------ open source
+  get oss() {
+    return (this.data?.contributions || []).map((c) => {
+      const idx = OSS_INDEX[c.status] ?? 0;
+      const failed = c.status === "Failed" || c.status === "Closed";
+      const owner = (c.repo || "").split("/")[0];
+      return {
+        ...c,
+        avatar: `https://avatars.githubusercontent.com/${owner}?size=80`,
+        repoUrl: `https://github.com/${c.repo}`,
+        starLabel: this.fmt(c.stars || 0),
+        statusLabel: OSS_LABEL[c.status] || c.status,
+        statusClass: `oss-status oss-${(c.status || "").toLowerCase()}`,
+        issueLabel: `#${c.issueNumber}`,
+        prLabel: c.prNumber ? `PR #${c.prNumber}` : null,
+        testLabel:
+          c.testResult && c.testResult !== "Pending"
+            ? c.testResult.replace("_", " ")
+            : null,
+        steps: OSS_STEPS.map((label, i) => ({
+          key: `${c.id}-${i}`,
+          label,
+          cls:
+            failed && i === Math.max(idx, 1) - 1
+              ? "st st-fail"
+              : i < idx
+                ? "st st-done"
+                : i === idx && !failed && c.status !== "Merged"
+                  ? "st st-live"
+                  : "st"
+        }))
+      };
+    });
+  }
+  get hasOss() {
+    return this.oss.length > 0;
+  }
+  get ossStats() {
+    const d = this.data || {};
+    return [
+      { key: "f", label: "In flight", value: d.ossInFlight || 0 },
+      { key: "o", label: "PRs open", value: d.ossOpen || 0 },
+      { key: "m", label: "Merged", value: d.ossMerged || 0 },
+      { key: "r", label: "Repos", value: d.ossRepos || 0 }
+    ];
+  }
+
+  // ------------------------------------------------------------ chat (admin, Agentforce)
+  get chatToggleLabel() {
+    return this.chatOpen ? "✕" : "💬 Ask Mission Control";
+  }
+  get chatSendDisabled() {
+    return this.chatBusy || !this.chatInput.trim();
+  }
+  toggleChat() {
+    this.chatOpen = !this.chatOpen;
+  }
+  handleChatInput(event) {
+    this.chatInput = event.target.value;
+  }
+  handleChatKey(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      this.sendChat();
+    }
+  }
+  async sendChat() {
+    const text = this.chatInput.trim();
+    if (!text || this.chatBusy) return;
+    const stamp = Date.now();
+    this.chatMessages = [
+      ...this.chatMessages,
+      { id: `u${stamp}`, cls: "msg msg-user", text },
+      {
+        id: `t${stamp}`,
+        cls: "msg msg-agent msg-typing",
+        text: "Mission Control is thinking…"
+      }
+    ];
+    this.chatInput = "";
+    const box = this.template.querySelector(".chat-input");
+    if (box) box.value = "";
+    this.chatBusy = true;
+    try {
+      const reply = await askMissionControl({
+        message: text,
+        sessionId: this.chatSession
+      });
+      this.chatSession = reply.sessionId;
+      this.chatMessages = [
+        ...this.chatMessages.filter((m) => m.id !== `t${stamp}`),
+        { id: `a${stamp}`, cls: "msg msg-agent", text: reply.message }
+      ];
+      this.refresh();
+    } catch (e) {
+      this.chatMessages = [
+        ...this.chatMessages.filter((m) => m.id !== `t${stamp}`),
+        {
+          id: `e${stamp}`,
+          cls: "msg msg-error",
+          text: e?.body?.message || "Mission Control is unavailable."
+        }
+      ];
+    } finally {
+      this.chatBusy = false;
+    }
+  }
+
+  dayLabel(value) {
+    const d = istIso(value).substring(0, 10);
+    const today = istIso(new Date()).substring(0, 10);
+    const yday = istIso(new Date(Date.now() - 86400000)).substring(0, 10);
+    return d === today ? "Today" : d === yday ? "Yesterday" : d.substring(5);
   }
 
   // ------------------------------------------------------------ utils

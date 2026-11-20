@@ -48,7 +48,7 @@ public with sharing class AgentLLMClient {
       '\n\n' +
       userPrompt +
       '\n\n## Output format\nRespond with ONLY one JSON object — no markdown fences, no commentary before or after. ' +
-      'It must contain exactly these keys, each with a string value: ' +
+      'It must contain exactly these keys (string values unless the instructions say otherwise): ' +
       String.join(requiredKeys, ', ') +
       '. ' +
       'Escape newlines and quotes inside string values correctly.';
@@ -69,8 +69,13 @@ public with sharing class AgentLLMClient {
           if (parsed.get(k) == null) {
             throw new LlmException('missing key ' + k);
           }
-          if (!(parsed.get(k) instanceof String)) {
-            parsed.put(k, String.valueOf(parsed.get(k)));
+          Object v = parsed.get(k);
+          if (
+            !(v instanceof String) &&
+            !(v instanceof List<Object>) &&
+            !(v instanceof Map<String, Object>)
+          ) {
+            parsed.put(k, String.valueOf(v));
           }
         }
         return parsed;

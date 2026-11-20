@@ -1,0 +1,24 @@
+name: Mission Control Tests
+description: Routing and action tests for the Mission Control squad lead agent.
+subjectType: AGENT
+subjectName: Mission_Control
+testCases:
+  - utterance: "How is the squad doing today? What's my streak?"
+    expectedTopic: mission_status
+    expectedActions:
+      - get_mission_status
+    expectedOutcome: "The agent reports the contribution streak and GitHub activity totals."
+  - utterance: "What did the agents do in the last 12 hours?"
+    expectedTopic: mission_status
+    expectedActions:
+      - get_recent_activity
+    expectedOutcome: "The agent lists recent agent activity with IST times, or says there was none."
+  - utterance: "Show me our open source contributions"
+    expectedTopic: open_source
+    expectedActions:
+      - get_open_source_status
+    expectedOutcome: "The agent lists open-source contributions or explains there are none yet."
+  - utterance: "What's the capital of France?"
+    expectedTopic: off_topic
+    expectedActions: []
+    expectedOutcome: "The agent does not answer the trivia question and instead describes what it can help with, such as squad status, missions, quests or open-source work."

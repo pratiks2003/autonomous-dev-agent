@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AiAgentDefinitionVersion xmlns="http://soap.sforce.com/2006/04/metadata">
+    <articleAnswersGPTEnabled>false</articleAnswersGPTEnabled>
+    <billingMode>ActionBased</billingMode>
+    <citationsEnabled>false</citationsEnabled>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The agent instructions</description>
+        <developerName>AgentScriptInternal_agent_instructions</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Agent Instructions</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The next topic to be visited</description>
+        <developerName>AgentScriptInternal_next_topic</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Next Topic</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <copilotPrimaryLanguage>en_US</copilotPrimaryLanguage>
+    <genAiPlannerName>Mission_Control_v1</genAiPlannerName>
+    <isScriptCompatibleAgent>true</isScriptCompatibleAgent>
+    <knowledgeActionEnabled>false</knowledgeActionEnabled>
+    <knowledgeFallbackEnabled>false</knowledgeFallbackEnabled>
+    <planner>
+        <fullName>Mission_Control_v1</fullName>
+        <agentGraphRef>20Zbm00000CXeEI</agentGraphRef>
+        <description>Lead agent of the autonomous GitHub engineering squad: status briefings, daily missions, quests and open-source contributions.</description>
+        <localTopicLinks>
+            <genAiPluginName>agent_router</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>ambiguous_question</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>maintainer</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>mission_status</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>off_topic</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>open_source</genAiPluginName>
+        </localTopicLinks>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Understand what the owner wants and hand off to the right specialist.</description>
+            <genAiPluginInstructions>
+                <description>You are Mission Control, the lead of an autonomous AI engineering squad that works on GitHub for its owner, pratiks2003. The squad: Scout finds open-source issues, Engineer writes fixes, Verifier runs the project&apos;s tests, Reviewer reviews every change, Publisher opens and tracks pull requests, and Maintainer runs the daily mission on the agent-forge repo. Be concise, confident and specific. Only state facts returned by your actions. Times are in IST.</description>
+                <developerName>instruction0_179bm000005R3LX</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179bm000005R3LX</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localDeveloperName>agent_router</localDeveloperName>
+            <masterLabel>Agent Router</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Redirect conversation to relevant topics when user request is too ambiguous</description>
+            <genAiPluginInstructions>
+                <description>You are Mission Control, the lead of an autonomous AI engineering squad that works on GitHub for its owner, pratiks2003. The squad: Scout finds open-source issues, Engineer writes fixes, Verifier runs the project&apos;s tests, Reviewer reviews every change, Publisher opens and tracks pull requests, and Maintainer runs the daily mission on the agent-forge repo. Be concise, confident and specific. Only state facts returned by your actions. Times are in IST.</description>
+                <developerName>instruction0_179bm000005R3LV</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179bm000005R3LV</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localDeveloperName>ambiguous_question</localDeveloperName>
+            <masterLabel>Ambiguous Question</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Runs the daily mission on the agent-forge repository and manages its quest backlog.</description>
+            <genAiPluginInstructions>
+                <description>You are Mission Control, the lead of an autonomous AI engineering squad that works on GitHub for its owner, pratiks2003. The squad: Scout finds open-source issues, Engineer writes fixes, Verifier runs the project&apos;s tests, Reviewer reviews every change, Publisher opens and tracks pull requests, and Maintainer runs the daily mission on the agent-forge repo. Be concise, confident and specific. Only state facts returned by your actions. Times are in IST.</description>
+                <developerName>instruction0_179bm000005R3LW</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179bm000005R3LW</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localActionLinks>
+                <functionName>run_daily_mission</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>queue_quest</functionName>
+            </localActionLinks>
+            <localActions>
+                <description>Adds an engineering task for the Maintainer to build in agent-forge. It is published as a GitHub issue with top priority.</description>
+                <invocationTarget>McQueueQuest</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>queue_quest</localDeveloperName>
+                <masterLabel>Queue Quest</masterLabel>
+                <progressIndicatorMessage>Queuing the quest...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Starts the daily mission immediately: pick or invent a quest, write code and tests, open, review and auto-merge a PR in agent-forge.</description>
+                <invocationTarget>McRunDailyMission</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>true</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>run_daily_mission</localDeveloperName>
+                <masterLabel>Run Daily Mission Now</masterLabel>
+                <progressIndicatorMessage>Launching the mission...</progressIndicatorMessage>
+            </localActions>
+            <localDeveloperName>maintainer</localDeveloperName>
+            <masterLabel>Maintainer</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Briefs the owner on streak, GitHub activity, the daily mission, open-source progress and the activity timeline.</description>
+            <genAiPluginInstructions>
+                <description>You are Mission Control, the lead of an autonomous AI engineering squad that works on GitHub for its owner, pratiks2003. The squad: Scout finds open-source issues, Engineer writes fixes, Verifier runs the project&apos;s tests, Reviewer reviews every change, Publisher opens and tracks pull requests, and Maintainer runs the daily mission on the agent-forge repo. Be concise, confident and specific. Only state facts returned by your actions. Times are in IST.</description>
+                <developerName>instruction0_179bm000005R3LY</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179bm000005R3LY</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localActionLinks>
+                <functionName>get_mission_status</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>get_recent_activity</functionName>
+            </localActionLinks>
+            <localActions>
+                <description>Returns the current streak, GitHub activity totals, last daily mission, open-source progress and the latest daily briefing.</description>
+                <invocationTarget>McGetMissionStatus</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>get_mission_status</localDeveloperName>
+                <masterLabel>Get Mission Status</masterLabel>
+                <progressIndicatorMessage>Checking in with the squad...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Returns a timeline of what each agent did in the last N hours, in IST.</description>
+                <invocationTarget>McRecentActivity</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>get_recent_activity</localDeveloperName>
+                <masterLabel>Get Recent Activity</masterLabel>
+                <progressIndicatorMessage>Reading the activity log...</progressIndicatorMessage>
+            </localActions>
+            <localDeveloperName>mission_status</localDeveloperName>
+            <masterLabel>Mission Status</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Redirect conversation to relevant topics when user request goes off-topic</description>
+            <genAiPluginInstructions>
+                <description>You are Mission Control, the lead of an autonomous AI engineering squad that works on GitHub for its owner, pratiks2003. The squad: Scout finds open-source issues, Engineer writes fixes, Verifier runs the project&apos;s tests, Reviewer reviews every change, Publisher opens and tracks pull requests, and Maintainer runs the daily mission on the agent-forge repo. Be concise, confident and specific. Only state facts returned by your actions. Times are in IST.</description>
+                <developerName>instruction0_179bm000005R3La</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179bm000005R3La</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localDeveloperName>off_topic</localDeveloperName>
+            <masterLabel>Off Topic</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Coordinates Scout, Engineer, Verifier, Reviewer and Publisher to contribute fixes to public GitHub repositories.</description>
+            <genAiPluginInstructions>
+                <description>You are Mission Control, the lead of an autonomous AI engineering squad that works on GitHub for its owner, pratiks2003. The squad: Scout finds open-source issues, Engineer writes fixes, Verifier runs the project&apos;s tests, Reviewer reviews every change, Publisher opens and tracks pull requests, and Maintainer runs the daily mission on the agent-forge repo. Be concise, confident and specific. Only state facts returned by your actions. Times are in IST.</description>
+                <developerName>instruction0_179bm000005R3LZ</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179bm000005R3LZ</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localActionLinks>
+                <functionName>scout_open_source</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>contribute_to_issue</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>get_open_source_status</functionName>
+            </localActionLinks>
+            <localActions>
+                <description>Puts a specific public GitHub issue at the top of the squad radar so the squad fixes it and opens a pull request.</description>
+                <invocationTarget>McContributeToIssue</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>contribute_to_issue</localDeveloperName>
+                <masterLabel>Contribute To Issue</masterLabel>
+                <progressIndicatorMessage>Adding the issue to the radar...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Lists the squad&apos;s open-source contributions with status and pull request links.</description>
+                <invocationTarget>McOpenSourceStatus</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>get_open_source_status</localDeveloperName>
+                <masterLabel>Get Open Source Contributions</masterLabel>
+                <progressIndicatorMessage>Checking contributions...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Asks the Scout to search public GitHub repositories for good-first issues the squad can fix now.</description>
+                <invocationTarget>McScoutOpenSource</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>scout_open_source</localDeveloperName>
+                <masterLabel>Scout Open Source Issues</masterLabel>
+                <progressIndicatorMessage>Dispatching the Scout...</progressIndicatorMessage>
+            </localActions>
+            <localDeveloperName>open_source</localDeveloperName>
+            <masterLabel>Open Source</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <masterLabel>Mission Control</masterLabel>
+        <plannerType>Atlas__ConcurrentMultiAgentOrchestration</plannerType>
+    </planner>
+    <smallTalkEnabled>false</smallTalkEnabled>
+    <staticPromptsEnabled>false</staticPromptsEnabled>
+    <status>Inactive</status>
+    <stopRecPrompts>false</stopRecPrompts>
+    <surfacesEnabled>false</surfacesEnabled>
+    <toneType>Casual</toneType>
+    <version>1</version>
+    <welcomeMessage>Mission Control online. I can brief you on the squad, run today&apos;s mission, queue a quest, or send the squad after an open-source issue. What do you need?</welcomeMessage>
+</AiAgentDefinitionVersion>

@@ -33,6 +33,15 @@ public with sharing class AgentStageFinalizer implements Finalizer {
 
   @TestVisible
   private void recordFailure(String detail) {
+    AgentEventLogger.error(
+      'Maintainer',
+      'Mission failed',
+      'Daily mission failed at ' +
+        stage +
+        ' — the watchdog will cover today if needed.',
+      detail
+    );
+    AgentEventLogger.flush();
     if (state.runLogId != null) {
       update new Agent_Run_Log__c(
         Id = state.runLogId,

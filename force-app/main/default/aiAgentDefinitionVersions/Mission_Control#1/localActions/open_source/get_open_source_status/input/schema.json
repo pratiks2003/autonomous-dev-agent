@@ -1,0 +1,14 @@
+{
+  "required" : [ "maxItems" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "maxItems" : {
+      "title" : "Max Items",
+      "description" : "How many contributions to list. Use 8 if the user does not say.",
+      "lightning:type" : "lightning__integerType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

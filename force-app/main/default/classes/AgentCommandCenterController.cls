@@ -62,6 +62,76 @@ public with sharing class AgentCommandCenterController {
     public Boolean manual;
   }
 
+  public class EventRow {
+    @AuraEnabled
+    public String id;
+    @AuraEnabled
+    public String agent;
+    @AuraEnabled
+    public String eventType;
+    @AuraEnabled
+    public String message;
+    @AuraEnabled
+    public String link;
+    @AuraEnabled
+    public String severity;
+    @AuraEnabled
+    public Datetime at;
+  }
+
+  public class AgentCard {
+    @AuraEnabled
+    public String key;
+    @AuraEnabled
+    public String name;
+    @AuraEnabled
+    public String role;
+    @AuraEnabled
+    public String lastMessage;
+    @AuraEnabled
+    public Datetime lastAt;
+    @AuraEnabled
+    public Integer actions24h = 0;
+  }
+
+  public class OssCard {
+    @AuraEnabled
+    public String id;
+    @AuraEnabled
+    public String repo;
+    @AuraEnabled
+    public Integer issueNumber;
+    @AuraEnabled
+    public String issueUrl;
+    @AuraEnabled
+    public String title;
+    @AuraEnabled
+    public String language;
+    @AuraEnabled
+    public Integer stars;
+    @AuraEnabled
+    public String status;
+    @AuraEnabled
+    public String prUrl;
+    @AuraEnabled
+    public Integer prNumber;
+    @AuraEnabled
+    public String testResult;
+    @AuraEnabled
+    public String summary;
+    @AuraEnabled
+    public Integer score;
+    @AuraEnabled
+    public Datetime updatedAt;
+  }
+
+  public class ChatReply {
+    @AuraEnabled
+    public String message;
+    @AuraEnabled
+    public String sessionId;
+  }
+
   public class Dashboard {
     @AuraEnabled
     public String owner;
@@ -105,6 +175,26 @@ public with sharing class AgentCommandCenterController {
     public List<QuestCard> planned = new List<QuestCard>();
     @AuraEnabled
     public Boolean isAdmin = false;
+    @AuraEnabled
+    public String briefingHeadline;
+    @AuraEnabled
+    public String briefingBody;
+    @AuraEnabled
+    public Datetime briefingAt;
+    @AuraEnabled
+    public List<EventRow> events = new List<EventRow>();
+    @AuraEnabled
+    public List<AgentCard> squad = new List<AgentCard>();
+    @AuraEnabled
+    public List<OssCard> contributions = new List<OssCard>();
+    @AuraEnabled
+    public Integer ossInFlight = 0;
+    @AuraEnabled
+    public Integer ossOpen = 0;
+    @AuraEnabled
+    public Integer ossMerged = 0;
+    @AuraEnabled
+    public Integer ossRepos = 0;
     @AuraEnabled
     public Datetime generatedAt;
   }
@@ -254,6 +344,8 @@ public with sharing class AgentCommandCenterController {
     while (d.planned.size() > 6) {
       d.planned.remove(d.planned.size() - 1);
     }
+    loadSquad(d);
+    loadOpenSource(d);
     return d;
   }
 
@@ -294,6 +386,177 @@ public with sharing class AgentCommandCenterController {
   }
 
   // ------------------------------------------------------------------ helpers
+
+  public static final List<List<String>> SQUAD = new List<List<String>>{
+    new List<String>{ 'Concierge', 'Squad lead · briefings & Agentforce chat' },
+    new List<String>{ 'Scout', 'Finds good-first issues across public GitHub' },
+    new List<String>{ 'Engineer', 'Forks, retrieves context, writes the fix' },
+    new List<String>{ 'Verifier', 'Runs the project\'s real test suite' },
+    new List<String>{ 'Reviewer', 'Independent code review gate' },
+    new List<String>{ 'Publisher', 'Opens & tracks pull requests' },
+    new List<String>{ 'Maintainer', 'Daily mission on agent-forge' },
+    new List<String>{ 'Watchdog', 'GitHub Actions failover at 01:30 IST' }
+  };
+
+  private static void loadSquad(Dashboard d) {
+    Map<String, AgentCard> byName = new Map<String, AgentCard>();
+    for (List<String> a : SQUAD) {
+      AgentCard c = new AgentCard();
+      c.key = a[0].toLowerCase();
+      c.name = a[0];
+      c.role = a[1];
+      byName.put(a[0], c);
+      d.squad.add(c);
+    }
+    Datetime dayAgo = Datetime.now().addHours(-24);
+    for (Agent_Event__c e : [
+      SELECT
+        Id,
+        Agent__c,
+        Event_Type__c,
+        Message__c,
+        Link__c,
+        Severity__c,
+        Occurred_At__c,
+        Public_Detail__c
+      FROM Agent_Event__c
+      WITH SECURITY_ENFORCED
+      ORDER BY Occurred_At__c DESC
+      LIMIT 200
+    ]) {
+      if (e.Event_Type__c == DailyBriefingService.EVENT_TYPE) {
+        if (d.briefingHeadline == null) {
+          d.briefingHeadline = e.Message__c;
+          d.briefingBody = e.Public_Detail__c;
+          d.briefingAt = e.Occurred_At__c;
+        }
+        continue;
+      }
+      if (d.events.size() < 30) {
+        EventRow r = new EventRow();
+        r.id = e.Id;
+        r.agent = e.Agent__c;
+        r.eventType = e.Event_Type__c;
+        r.message = e.Message__c;
+        r.link = e.Link__c;
+        r.severity = e.Severity__c;
+        r.at = e.Occurred_At__c;
+        d.events.add(r);
+      }
+      AgentCard c = byName.get(e.Agent__c);
+      if (c != null) {
+        if (c.lastAt == null) {
+          c.lastAt = e.Occurred_At__c;
+          c.lastMessage = e.Message__c;
+        }
+        if (e.Occurred_At__c >= dayAgo) {
+          c.actions24h++;
+        }
+      }
+    }
+  }
+
+  private static void loadOpenSource(Dashboard d) {
+    Set<String> repos = new Set<String>();
+    for (OSS_Contribution__c c : [
+      SELECT
+        Id,
+        Repo__c,
+        Issue_Number__c,
+        Issue_Url__c,
+        Issue_Title__c,
+        Language__c,
+        Stars__c,
+        Status__c,
+        PR_Url__c,
+        PR_Number__c,
+        Test_Result__c,
+        Fix_Summary__c,
+        Feasibility_Score__c,
+        LastModifiedDate
+      FROM OSS_Contribution__c
+      WITH SECURITY_ENFORCED
+      ORDER BY LastModifiedDate DESC
+      LIMIT 60
+    ]) {
+      if (OssContributionEngine.IN_FLIGHT.contains(c.Status__c)) {
+        d.ossInFlight++;
+      } else if (c.Status__c == 'PR_Open') {
+        d.ossOpen++;
+      } else if (c.Status__c == 'Merged') {
+        d.ossMerged++;
+      }
+      if (c.Status__c == 'PR_Open' || c.Status__c == 'Merged') {
+        repos.add(c.Repo__c);
+      }
+      if (d.contributions.size() >= 9 || c.Status__c == 'Skipped') {
+        continue;
+      }
+      OssCard o = new OssCard();
+      o.id = c.Id;
+      o.repo = c.Repo__c;
+      o.issueNumber = c.Issue_Number__c == null
+        ? null
+        : c.Issue_Number__c.intValue();
+      o.issueUrl = c.Issue_Url__c;
+      o.title = c.Issue_Title__c;
+      o.language = c.Language__c;
+      o.stars = c.Stars__c == null ? 0 : c.Stars__c.intValue();
+      o.status = c.Status__c;
+      o.prUrl = c.PR_Url__c;
+      o.prNumber = c.PR_Number__c == null ? null : c.PR_Number__c.intValue();
+      o.testResult = c.Test_Result__c;
+      o.summary = c.Fix_Summary__c;
+      o.score = c.Feasibility_Score__c == null
+        ? null
+        : c.Feasibility_Score__c.intValue();
+      o.updatedAt = c.LastModifiedDate;
+      d.contributions.add(o);
+    }
+    d.ossRepos = repos.size();
+  }
+
+  /** Admin-only: talk to the Mission Control Agentforce agent from the dashboard. */
+  @AuraEnabled
+  public static ChatReply askMissionControl(String message, String sessionId) {
+    requireAdmin();
+    if (String.isBlank(message)) {
+      throw new AuraHandledException('Say something to Mission Control.');
+    }
+    ChatReply reply = new ChatReply();
+    if (Test.isRunningTest()) {
+      reply.message = 'Mission Control online.';
+      reply.sessionId = 'test-session';
+      return reply;
+    }
+    Invocable.Action action = Invocable.Action.createCustomAction(
+      'generateAiAgentResponse',
+      'Mission_Control'
+    );
+    action.setInvocationParameter('userMessage', message.abbreviate(2000));
+    if (String.isNotBlank(sessionId)) {
+      action.setInvocationParameter('sessionId', sessionId);
+    }
+    Invocable.Action.Result result = action.invoke()[0];
+    if (!result.isSuccess()) {
+      throw new AuraHandledException(
+        'Mission Control is unavailable: ' +
+        JSON.serialize(result.getErrors()).abbreviate(300)
+      );
+    }
+    Map<String, Object> outputs = result.getOutputParameters();
+    String raw = String.valueOf(outputs.get('agentResponse'));
+    try {
+      Map<String, Object> parsed = (Map<String, Object>) JSON.deserializeUntyped(
+        raw
+      );
+      reply.message = String.valueOf(parsed.get('value'));
+    } catch (Exception e) {
+      reply.message = raw;
+    }
+    reply.sessionId = String.valueOf(outputs.get('sessionId'));
+    return reply;
+  }
 
   public static Boolean isAdmin() {
     return FeatureManagement.checkPermission('Agent_Command_Admin');

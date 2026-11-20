@@ -1,0 +1,14 @@
+{
+  "required" : [ "issueUrl" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "issueUrl" : {
+      "title" : "Issue Url",
+      "description" : "GitHub issue URL, for example https://github.com/owner/repo/issues/123.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

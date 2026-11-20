@@ -1,0 +1,28 @@
+{
+  "required" : [ "title" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "details" : {
+      "title" : "Details",
+      "description" : "Acceptance criteria or extra details, if the user gave any.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "questType" : {
+      "title" : "Quest Type",
+      "description" : "One of Feature, Unit_Test, Refactor, Docs, Challenge. Default Feature.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "title" : {
+      "title" : "Title",
+      "description" : "Short title of the task, for example 'Add an LRU cache with O(1) get and put'.",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

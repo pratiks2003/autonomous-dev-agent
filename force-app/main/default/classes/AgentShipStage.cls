@@ -145,5 +145,34 @@ public with sharing class AgentShipStage implements Queueable, Database.AllowsCa
       Streak_Days__c = streak,
       Contribution_Snapshot__c = snapshot
     );
+    AgentEventLogger.success(
+      'Publisher',
+      r.merged ? 'PR merged' : 'PR opened',
+      (r.merged ? 'Merged PR #' : 'Opened PR #') +
+        r.prNumber +
+        ' in ' +
+        cfg.repo +
+        ' — ' +
+        gen.get('prTitle') +
+        (r.autoMergeEnabled ? ' (auto-merge armed, waiting for CI)' : ''),
+      r.prUrl
+    );
+    AgentEventLogger.info(
+      'Reviewer',
+      'Code reviewed',
+      'Posted a code review on PR #' +
+        r.prNumber +
+        ' (complexity, edge cases, security).',
+      r.prUrl
+    );
+    if (releaseTag != null) {
+      AgentEventLogger.success(
+        'Maintainer',
+        'Release published',
+        'Published release ' + releaseTag,
+        'https://github.com/' + cfg.fullRepo() + '/releases/tag/' + releaseTag
+      );
+    }
+    AgentEventLogger.flush();
   }
 }

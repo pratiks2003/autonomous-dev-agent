@@ -65,6 +65,24 @@
       <div class="banner banner-fail">{errorMessage}</div>
     </template>
 
+    <!-- ============ DAILY BRIEFING (Concierge) ============ -->
+    <template lwc:if={hasBriefing}>
+      <section class="briefing glass">
+        <div class="briefing-icon" aria-hidden="true">📰</div>
+        <div class="briefing-body">
+          <div class="eyebrow">
+            Today's briefing · written by the Concierge agent · {briefingTime}
+          </div>
+          <h2 class="briefing-headline">{briefingHeadline}</h2>
+          <ul class="briefing-list">
+            <template for:each={briefingBullets} for:item="b">
+              <li key={b.id}>{b.text}</li>
+            </template>
+          </ul>
+        </div>
+      </section>
+    </template>
+
     <!-- ============ HERO ============ -->
     <section class="hero">
       <div class="hero-streak glass">
@@ -123,6 +141,35 @@
             </li>
           </template>
         </ol>
+      </div>
+    </section>
+
+    <!-- ============ AGENT SQUAD ============ -->
+    <section class="squad-wrap">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">The squad · Agentforce multi-agent system</span>
+          <h2 class="section-title">8 agents, one GitHub career</h2>
+        </div>
+        <span class="chip">{workingCount} working right now</span>
+      </div>
+      <div class="squad">
+        <template for:each={squad} for:item="a">
+          <article key={a.key} class={a.cardClass}>
+            <div class="agent-top">
+              <span class="avatar" style={a.avatarStyle}>{a.emoji}</span>
+              <div class="agent-id">
+                <span class="agent-name">{a.name}</span>
+                <span class={a.statusClass}
+                  ><span class="pulse"></span>{a.statusLabel}</span
+                >
+              </div>
+            </div>
+            <p class="agent-role">{a.role}</p>
+            <p class="agent-last">{a.last}</p>
+            <span class="agent-count">{a.countLabel}</span>
+          </article>
+        </template>
       </div>
     </section>
 
@@ -208,6 +255,115 @@
             >last 30 runs · watchdog backs up failures</span
           >
         </div>
+      </div>
+    </section>
+
+    <!-- ============ OPS: LIVE FEED + OPEN SOURCE ============ -->
+    <section class="ops">
+      <div class="glass feed">
+        <div class="panel-head">
+          <span class="eyebrow">⚡ Live activity · IST</span>
+          <span class="chip">auto-refreshes every minute</span>
+        </div>
+        <template lwc:if={hasFeed}>
+          <ol class="feed-list">
+            <template for:each={feed} for:item="e">
+              <li key={e.id} class={e.rowClass}>
+                <span class="feed-dot" style={e.dotStyle}>{e.emoji}</span>
+                <div class="feed-main">
+                  <div class="feed-meta">
+                    <span class="feed-agent" style={e.dotStyle}>{e.agent}</span>
+                    <span class="feed-time">{e.day} · {e.time}</span>
+                  </div>
+                  <p class="feed-msg">{e.message}</p>
+                  <template lwc:if={e.hasLink}>
+                    <a
+                      class="feed-link"
+                      href={e.link}
+                      target="_blank"
+                      rel="noopener"
+                      >open ↗</a
+                    >
+                  </template>
+                </div>
+              </li>
+            </template>
+          </ol>
+        </template>
+        <template lwc:else
+          ><div class="empty">
+            The squad's actions will stream here as they happen.
+          </div></template
+        >
+      </div>
+
+      <div class="glass oss">
+        <div class="panel-head">
+          <span class="eyebrow"
+            >🌍 Open-source contributions · public GitHub</span
+          >
+        </div>
+        <div class="oss-stats">
+          <template for:each={ossStats} for:item="st">
+            <div key={st.key} class="oss-stat">
+              <span class="oss-stat-num">{st.value}</span>
+              <span class="oss-stat-lbl">{st.label}</span>
+            </div>
+          </template>
+        </div>
+        <template lwc:if={hasOss}>
+          <div class="oss-list">
+            <template for:each={oss} for:item="c">
+              <article key={c.id} class="oss-card">
+                <div class="oss-top">
+                  <img
+                    class="oss-avatar"
+                    src={c.avatar}
+                    alt=""
+                    loading="lazy"
+                  />
+                  <div class="oss-repo">
+                    <a href={c.repoUrl} target="_blank" rel="noopener"
+                      >{c.repo}</a
+                    >
+                    <span class="oss-meta">★ {c.starLabel} · {c.language}</span>
+                  </div>
+                  <span class={c.statusClass}>{c.statusLabel}</span>
+                </div>
+                <p class="oss-title">{c.title}</p>
+                <ol class="stepper">
+                  <template for:each={c.steps} for:item="st">
+                    <li key={st.key} class={st.cls}>
+                      <span class="st-dot"></span
+                      ><span class="st-lbl">{st.label}</span>
+                    </li>
+                  </template>
+                </ol>
+                <div class="card-links">
+                  <template lwc:if={c.issueUrl}
+                    ><a href={c.issueUrl} target="_blank" rel="noopener"
+                      >{c.issueLabel}</a
+                    ></template
+                  >
+                  <template lwc:if={c.prUrl}
+                    ><a href={c.prUrl} target="_blank" rel="noopener" class="pr"
+                      >{c.prLabel}</a
+                    ></template
+                  >
+                  <template lwc:if={c.testLabel}
+                    ><code>tests: {c.testLabel}</code></template
+                  >
+                </div>
+              </article>
+            </template>
+          </div>
+        </template>
+        <template lwc:else
+          ><div class="empty">
+            The Scout scans public GitHub every 30 minutes. The first
+            contribution will appear here.
+          </div></template
+        >
       </div>
     </section>
 
@@ -489,6 +645,55 @@
           </button>
         </div>
       </section>
+    </template>
+
+    <!-- ============ ASK MISSION CONTROL (Agentforce, admin) ============ -->
+    <template lwc:if={showAdmin}>
+      <div class="chat-dock">
+        <template lwc:if={chatOpen}>
+          <div class="chat glass">
+            <div class="chat-head">
+              <span class="avatar small" style="--c: #f0b429">🧭</span>
+              <div>
+                <div class="agent-name">Mission Control</div>
+                <div class="chat-sub">
+                  Agentforce · Agent Script · live actions
+                </div>
+              </div>
+            </div>
+            <div class="chat-log">
+              <template for:each={chatMessages} for:item="m">
+                <div key={m.id} class={m.cls}>{m.text}</div>
+              </template>
+            </div>
+            <div class="chat-compose">
+              <textarea
+                class="chat-input inp"
+                rows="2"
+                aria-label="Message Mission Control"
+                placeholder="e.g. What did the squad do today?"
+                oninput={handleChatInput}
+                onkeydown={handleChatKey}
+              ></textarea>
+              <button
+                class="btn btn-primary"
+                disabled={chatSendDisabled}
+                onclick={sendChat}
+                aria-label="Send"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </template>
+        <button
+          class="chat-toggle"
+          onclick={toggleChat}
+          aria-label="Toggle Mission Control chat"
+        >
+          {chatToggleLabel}
+        </button>
+      </div>
     </template>
 
     <footer class="foot">

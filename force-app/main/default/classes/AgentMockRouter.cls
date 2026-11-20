@@ -7,6 +7,8 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
   public Boolean autoMergeFails = true;
   public Boolean profileReadmeExists = false;
   public Boolean indexExists = false;
+  public String runTitleName = 'OSS-0000';
+  public String testStep = 'success';
   public Integer llmStatus = 200;
   public List<String> calls = new List<String>();
 
@@ -19,6 +21,76 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
     res.setHeader('Content-Type', 'application/json');
     res.setStatusCode(200);
 
+    if (url.contains('/search/issues')) {
+      res.setBody(
+        '{"items":[' +
+          '{"number":7,"title":"Handle empty input in parseDuration","body":"parseDuration(\\"\\") throws","html_url":"https://github.com/acme/widgets/issues/7","repository_url":"https://api.github.com/repos/acme/widgets"},' +
+          '{"number":9,"title":"Docs typo","body":"typo","html_url":"https://github.com/foo/bar/issues/9","repository_url":"https://api.github.com/repos/foo/bar"}]}'
+      );
+      return res;
+    }
+    if (url.contains('/search/code')) {
+      res.setBody(
+        '{"items":[{"path":"src/duration.ts"},{"path":"README.md"}]}'
+      );
+      return res;
+    }
+    if (method == 'POST' && url.endsWith('/forks')) {
+      res.setStatusCode(202);
+      res.setBody('{"full_name":"pratiks2003/widgets"}');
+      return res;
+    }
+    if (url.contains('/merge-upstream') || url.endsWith('/dispatches')) {
+      res.setStatusCode(url.endsWith('/dispatches') ? 204 : 200);
+      res.setBody('');
+      return res;
+    }
+    if (method == 'GET' && url.contains('/git/ref/heads/')) {
+      res.setBody('{"object":{"sha":"' + 'b'.repeat(40) + '"}}');
+      return res;
+    }
+    if (method == 'GET' && url.contains('/git/trees/')) {
+      res.setBody(
+        '{"tree":[{"path":"src/duration.ts","type":"blob"},{"path":"tests/duration.test.ts","type":"blob"},{"path":"package.json","type":"blob"}]}'
+      );
+      return res;
+    }
+    if (
+      method == 'GET' && url.contains('/actions/workflows/oss-verify.yml/runs')
+    ) {
+      res.setBody(
+        '{"workflow_runs":[{"display_title":"verify ' +
+          runTitleName +
+          ' · pratiks2003/widgets@fix/issue-7","status":"completed","conclusion":"' +
+          (testStep == 'failure' ? 'failure' : 'success') +
+          '","html_url":"https://github.com/run/1","jobs_url":"https://api.github.com/repos/pratiks2003/agent-forge/actions/runs/1/jobs"}]}'
+      );
+      return res;
+    }
+    if (method == 'GET' && url.contains('/actions/runs/1/jobs')) {
+      res.setBody(
+        '{"jobs":[{"steps":[{"name":"Run tests","conclusion":"' +
+          testStep +
+          '"},{"name":"Static check","conclusion":"skipped"}]}]}'
+      );
+      return res;
+    }
+    if (
+      method == 'GET' &&
+      url.contains('/issues/') &&
+      !url.contains('/comments')
+    ) {
+      res.setBody('{"state":"open","assignees":[]}');
+      return res;
+    }
+    if (method == 'GET' && Pattern.matches('.*/repos/[^/]+/[^/?]+$', url)) {
+      res.setBody(
+        '{"stargazers_count":500,"archived":false,"pushed_at":"' +
+          Datetime.now().formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'') +
+          '","default_branch":"main"}'
+      );
+      return res;
+    }
     if (url.endsWith('/graphql')) {
       res.setBody(graphql(body));
     } else if (method == 'POST' && url.contains('/git/refs')) {
@@ -87,6 +159,9 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
   }
 
   private String graphql(String body) {
+    if (body.contains('timelineItems')) {
+      return '{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}';
+    }
     if (body.contains('enablePullRequestAutoMerge')) {
       return autoMergeFails
         ? '{"errors":[{"message":"Pull request is in clean status"}]}'
@@ -117,6 +192,31 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
   public String generate(String modelName, String prompt) {
     if (llmStatus != 200) {
       throw new AgentLLMClient.LlmException('Models API unavailable');
+    }
+    if (prompt.contains('You are the Scout')) {
+      return '{"ranking":[{"index":0,"score":9,"reason":"Clear, small fix"},{"index":1,"score":7,"reason":"Trivial docs"}]}';
+    }
+    if (prompt.contains('contributing to an open-source project')) {
+      return JSON.serialize(
+        new Map<String, Object>{
+          'files' => new List<Object>{
+            new Map<String, Object>{
+              'path' => 'src/duration.ts',
+              'content' => 'export const parseDuration = (s: string) => (s ? 1 : 0);'
+            }
+          },
+          'summary' => 'Return 0 for empty input.',
+          'prTitle' => 'fix: handle empty input in parseDuration',
+          'prBody' => '## What\nHandles empty input.',
+          'commitMessage' => 'fix: handle empty input in parseDuration'
+        }
+      );
+    }
+    if (prompt.contains('exacting open-source maintainer')) {
+      return '{"verdict":"Approve","notes":"Looks good."}';
+    }
+    if (prompt.contains('You are the Concierge')) {
+      return '{"headline":"Quiet, productive day","briefing":"- Shipped clamp"}';
     }
     return 'Here you go:\n```json\n' +
       llm(prompt.contains('Return the quest JSON')) +

@@ -110,6 +110,15 @@ public with sharing class AgentContextStage implements Queueable, Database.Allow
       newQuests.add(generated);
       byIssue.put(generated.GitHub_Issue_Number__c.intValue(), generated);
       openByNumber.put(generated.GitHub_Issue_Number__c.intValue(), null);
+      AgentEventLogger.info(
+        'Maintainer',
+        'Quest invented',
+        'Backlog was thin — invented quest #' +
+          generated.GitHub_Issue_Number__c.intValue() +
+          ': ' +
+          generated.Title__c,
+        null
+      );
       state.note(
         'Backlog thin (' +
           available +
@@ -170,6 +179,13 @@ public with sharing class AgentContextStage implements Queueable, Database.Allow
       Agent_Quest__c = pick.Id
     );
 
+    AgentEventLogger.info(
+      'Maintainer',
+      'Quest selected',
+      'Daily mission: quest #' + state.issueNumber + ' — ' + state.issueTitle,
+      'https://github.com/' + repoName + '/issues/' + state.issueNumber
+    );
+    AgentEventLogger.flush();
     DailyAgentOrchestrator.chain(new AgentCodeGenStage(state));
   }
 
