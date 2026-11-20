@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomMetadata
+  xmlns="http://soap.sforce.com/2006/04/metadata"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+>
+    <label>Default</label>
+    <protected>false</protected>
+    <values><field>Owner__c</field><value
+      xsi:type="xsd:string"
+    >pratiks2003</value></values>
+    <values><field>Repo__c</field><value
+      xsi:type="xsd:string"
+    >agent-forge</value></values>
+    <values><field>Profile_Repo__c</field><value
+      xsi:type="xsd:string"
+    >pratiks2003</value></values>
+    <values><field>Site_Url__c</field><value
+      xsi:type="xsd:string"
+    >https://orgfarm-bd59095f65-dev-ed.develop.my.site.com/agent</value></values>
+    <values><field>Model__c</field><value
+      xsi:type="xsd:string"
+    >sfdc_ai__DefaultBedrockAnthropicClaude4Sonnet</value></values>
+    <values><field>Min_Open_Quests__c</field><value
+      xsi:type="xsd:double"
+    >3</value></values>
+    <values><field>Release_Every_N_Runs__c</field><value
+      xsi:type="xsd:double"
+    >7</value></values>
+    <values><field>Enabled__c</field><value
+      xsi:type="xsd:boolean"
+    >true</value></values>
+</CustomMetadata>

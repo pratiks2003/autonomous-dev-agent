@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>64.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Agent Command Center</masterLabel>
+    <description>Live dashboard for the autonomous GitHub agent.</description>
+    <targets>
+        <target>lightningCommunity__Page</target>
+        <target>lightningCommunity__Default</target>
+        <target>lightning__AppPage</target>
+        <target>lightning__HomePage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightningCommunity__Default">
+            <property
+        name="githubUsername"
+        type="String"
+        label="GitHub username"
+        default="pratiks2003"
+      />
+            <property
+        name="repoName"
+        type="String"
+        label="Repository name"
+        default="agent-forge"
+      />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

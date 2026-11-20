@@ -1,0 +1,506 @@
+<template>
+  <div class="shell">
+    <div class="aurora" aria-hidden="true"></div>
+    <div class="grid-bg" aria-hidden="true"></div>
+
+    <!-- ============ TOP BAR ============ -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28">
+            <rect
+              x="3"
+              y="3"
+              width="26"
+              height="26"
+              rx="8"
+              fill="none"
+              stroke="#39d353"
+              stroke-width="2.5"
+            />
+            <circle cx="12" cy="14" r="2.4" fill="#39d353" />
+            <circle cx="20" cy="14" r="2.4" fill="#58a6ff" />
+            <path
+              d="M11 20.5c3 2.4 7 2.4 10 0"
+              stroke="#58a6ff"
+              stroke-width="2.2"
+              fill="none"
+              stroke-linecap="round"
+            />
+          </svg>
+        </span>
+        <div>
+          <div class="brand-title">Agent Command Center</div>
+          <div class="brand-sub">
+            <a href={profileUrl} target="_blank" rel="noopener">@{owner}</a>
+            <span class="sep">/</span>
+            <a href={repoUrl} target="_blank" rel="noopener">{repo}</a>
+          </div>
+        </div>
+      </div>
+      <div class="top-right">
+        <span class={statusClass}
+          ><span class="pulse"></span>{statusLabel}</span
+        >
+        <div class="clock">
+          <span class="clock-label">IST</span>
+          <span class="clock-time">{istTime}</span>
+          <span class="clock-date">{istDate} · UTC {utcShort}</span>
+        </div>
+        <div class="clock next">
+          <span class="clock-label">Next run</span>
+          <span class="clock-time">{countdown}</span>
+          <span class="clock-date">13:30 IST daily</span>
+        </div>
+      </div>
+    </header>
+
+    <template lwc:if={isLoading}>
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Syncing telemetry from Salesforce…</span>
+      </div>
+    </template>
+    <template lwc:if={error}>
+      <div class="banner banner-fail">{errorMessage}</div>
+    </template>
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="hero-streak glass">
+        <div class="eyebrow">Unbroken contribution streak</div>
+        <div class="streak-row">
+          <span class={flameClass} aria-hidden="true">
+            <svg viewBox="0 0 24 32" width="46" height="60">
+              <path
+                d="M12 1c1.5 5-3 7.5-3 12 0 2 1.2 3.6 2.8 3.6 1.9 0 2.8-1.7 2.2-4.4 3.4 2.4 6 6.2 6 10.3C20 27.7 16.4 31 12 31S4 27.7 4 22.5C4 14.5 12 10 12 1z"
+                fill="#ff8a00"
+              />
+              <path
+                d="M12 14c.9 3-1.6 4.6-1.6 7.2 0 1.5 1 2.6 2.2 2.6 1.5 0 2.2-1.2 1.8-3.1 2 1.6 3.2 3.7 3.2 5.6 0 2.9-2.5 4.7-5.6 4.7s-5.6-1.8-5.6-4.7c0-4.6 5.6-7.3 5.6-12.3z"
+                fill="#ffd166"
+              />
+            </svg>
+          </span>
+          <span class="streak-num">{streak}</span>
+          <span class="streak-unit">{streakLabel}</span>
+        </div>
+        <div class="hero-meta">
+          <div>
+            <span class="meta-num">{totalContributions}</span
+            ><span class="meta-lbl">contributions / yr</span>
+          </div>
+          <div>
+            <span class="meta-num">{shippedTotal}</span
+            ><span class="meta-lbl">PRs shipped</span>
+          </div>
+          <div>
+            <span class="meta-num">{lastRunAgo}</span
+            ><span class="meta-lbl">last run</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-pipeline glass">
+        <div class="panel-head">
+          <span class="eyebrow">Today's autonomous pipeline</span>
+          <span class="chip">Apex Queueables · {modelLabel}</span>
+        </div>
+        <ol class="pipeline">
+          <template for:each={pipeline} for:item="s">
+            <li key={s.key} class="stage">
+              <div class={s.nodeClass}>
+                <span class="node-ring"></span>
+                <span class="node-idx">{s.index}</span>
+              </div>
+              <div class="stage-text">
+                <span class="stage-label">{s.label}</span>
+                <span class="stage-hint">{s.hint}</span>
+              </div>
+              <template lwc:if={s.showLink}
+                ><span class={s.linkClass}></span
+              ></template>
+            </li>
+          </template>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============ TELEMETRY STRIP ============ -->
+    <section class="telemetry">
+      <div class="glass activity">
+        <div class="panel-head">
+          <span class="eyebrow">Activity overview · 4 axes</span>
+          <a class="link-sm" href={profileUrl} target="_blank" rel="noopener"
+            >GitHub profile ↗</a
+          >
+        </div>
+        <div class="activity-body">
+          <svg
+            class="radar"
+            viewBox="0 0 180 180"
+            role="img"
+            aria-label="Activity overview"
+          >
+            <line x1="90" y1="14" x2="90" y2="166" class="axis" />
+            <line x1="14" y1="90" x2="166" y2="90" class="axis" />
+            <circle cx="90" cy="90" r="70" class="ring" />
+            <circle cx="90" cy="90" r="35" class="ring" />
+            <polygon points={radar.polygon} class="radar-shape" />
+            <template for:each={radar.dots} for:item="d">
+              <circle
+                key={d.id}
+                cx={d.cx}
+                cy={d.cy}
+                r="3.5"
+                class="radar-dot"
+              />
+            </template>
+            <text x="90" y="9" class="radar-lbl" text-anchor="middle">
+              Code review
+            </text>
+            <text x="176" y="94" class="radar-lbl" text-anchor="end">
+              Issues
+            </text>
+            <text x="90" y="178" class="radar-lbl" text-anchor="middle">
+              Pull requests
+            </text>
+            <text x="4" y="94" class="radar-lbl">Commits</text>
+          </svg>
+          <ul class="axes">
+            <template for:each={axes} for:item="a">
+              <li key={a.key}>
+                <div class="axis-top">
+                  <span class="axis-name"
+                    ><span class="dot" style={a.dotStyle}></span>{a.label}</span
+                  >
+                  <span class="axis-val"
+                    >{a.display}<small>{a.pct}%</small></span
+                  >
+                </div>
+                <div class="bar"><span style={a.barStyle}></span></div>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </div>
+
+      <div class="stat-col">
+        <a
+          class="glass stat release"
+          href={releaseUrl}
+          target="_blank"
+          rel="noopener"
+        >
+          <span class="eyebrow">Latest release</span>
+          <span class="release-badge"
+            ><span class="rb-l">release</span
+            ><span class="rb-r">{latestRelease}</span></span
+          >
+          <span class="stat-sub">{releaseAgo} · semantic weekly</span>
+        </a>
+        <div class="glass stat">
+          <span class="eyebrow">Run success rate</span>
+          <div class="gauge" style={successStyle}>
+            <span>{successRate}%</span>
+          </div>
+          <span class="stat-sub"
+            >last 30 runs · watchdog backs up failures</span
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HEATMAP ============ -->
+    <section class="glass heat">
+      <div class="panel-head">
+        <span class="eyebrow">Contribution graph · UTC aligned</span>
+        <template lwc:if={hasHeatmapData}>
+          <span class="chip">{totalContributions} in the last year</span>
+        </template>
+        <template lwc:else>
+          <span class="chip">snapshot arrives after the first run</span>
+        </template>
+      </div>
+      <div class="heat-scroll">
+        <svg
+          class="heat-svg"
+          viewBox={heatmap.viewBox}
+          preserveAspectRatio="xMinYMin meet"
+        >
+          <template for:each={heatmap.months} for:item="m">
+            <text key={m.key} x={m.x} y="-5" class="month">{m.label}</text>
+          </template>
+          <template for:each={heatmap.cells} for:item="c">
+            <rect
+              key={c.key}
+              x={c.x}
+              y={c.y}
+              width="10"
+              height="10"
+              rx="2.5"
+              fill={c.fill}
+              class="cell"
+            >
+              <title>{c.title}</title>
+            </rect>
+          </template>
+        </svg>
+      </div>
+      <div class="legend">
+        <span>Less</span>
+        <template for:each={legend} for:item="l"
+          ><span key={l.key} class="lg" style={l.style}></span
+        ></template>
+        <span>More</span>
+      </div>
+    </section>
+
+    <!-- ============ KANBAN ============ -->
+    <section class="kanban">
+      <div class="col">
+        <div class="col-head">
+          <span class="col-dot shipped"></span>Shipped
+          <span class="count">{shippedCount}</span>
+        </div>
+        <template lwc:if={hasShipped}>
+          <template for:each={shipped} for:item="q">
+            <article key={q.id} class={q.cardClass}>
+              <div class="card-top">
+                <span class={q.typeClass}>{q.typeLabel}</span>
+                <span class="when">{q.when}</span>
+              </div>
+              <h3 class="card-title">{q.title}</h3>
+              <div class="card-links">
+                <template lwc:if={q.issueUrl}
+                  ><a href={q.issueUrl} target="_blank" rel="noopener"
+                    >{q.issueLabel}</a
+                  ></template
+                >
+                <template lwc:if={q.prUrl}
+                  ><a href={q.prUrl} target="_blank" rel="noopener" class="pr"
+                    >{q.prLabel}</a
+                  ></template
+                >
+                <template lwc:if={q.shortSha}
+                  ><code>{q.shortSha}</code></template
+                >
+                <template lwc:if={q.selfGenerated}
+                  ><span class="self">self-generated</span></template
+                >
+              </div>
+              <template lwc:if={q.hasLogs}>
+                <button
+                  class="toggle"
+                  data-id={q.id}
+                  onclick={handleToggle}
+                  aria-label="Toggle agent logs"
+                >
+                  {q.toggleLabel}
+                </button>
+                <template lwc:if={q.isOpen}>
+                  <div class="logs">
+                    <template lwc:if={q.reasoning}>
+                      <div class="log-title">🧠 AI reasoning</div>
+                      <pre>{q.reasoning}</pre>
+                    </template>
+                    <template lwc:if={q.review}>
+                      <div class="log-title">🔍 Code review</div>
+                      <pre>{q.review}</pre>
+                    </template>
+                  </div>
+                </template>
+              </template>
+            </article>
+          </template>
+        </template>
+        <template lwc:else
+          ><div class="empty">
+            The first shipped PR will land here.
+          </div></template
+        >
+      </div>
+
+      <div class="col">
+        <div class="col-head">
+          <span class="col-dot active"></span>Active / Reviewing
+          <span class="count">{activeCount}</span>
+        </div>
+        <template lwc:if={hasActive}>
+          <template for:each={active} for:item="q">
+            <article key={q.id} class={q.cardClass}>
+              <div class="card-top">
+                <span class={q.typeClass}>{q.typeLabel}</span>
+                <span class="status-live"
+                  ><span class="pulse"></span>{q.statusLabel}</span
+                >
+              </div>
+              <h3 class="card-title">{q.title}</h3>
+              <div class="card-links">
+                <template lwc:if={q.issueUrl}
+                  ><a href={q.issueUrl} target="_blank" rel="noopener"
+                    >{q.issueLabel}</a
+                  ></template
+                >
+                <template lwc:if={q.prUrl}
+                  ><a href={q.prUrl} target="_blank" rel="noopener" class="pr"
+                    >{q.prLabel}</a
+                  ></template
+                >
+                <template lwc:if={q.branch}><code>{q.branch}</code></template>
+              </div>
+            </article>
+          </template>
+        </template>
+        <template lwc:else
+          ><div class="empty">
+            Nothing in flight. Next run starts in {countdown}.
+          </div></template
+        >
+      </div>
+
+      <div class="col">
+        <div class="col-head">
+          <span class="col-dot planned"></span>Next planned quests
+          <span class="count">{plannedCount}</span>
+        </div>
+        <template lwc:if={hasPlanned}>
+          <template for:each={planned} for:item="q">
+            <article key={q.id} class={q.cardClass}>
+              <div class="card-top">
+                <span class={q.typeClass}>{q.typeLabel}</span>
+                <span class="prio">{q.priorityLabel}</span>
+              </div>
+              <h3 class="card-title">{q.title}</h3>
+              <div class="card-links">
+                <template lwc:if={q.issueUrl}
+                  ><a href={q.issueUrl} target="_blank" rel="noopener"
+                    >{q.issueLabel}</a
+                  ></template
+                >
+                <template lwc:if={q.selfGenerated}
+                  ><span class="self">self-generated</span></template
+                >
+              </div>
+            </article>
+          </template>
+        </template>
+        <template lwc:else
+          ><div class="empty">
+            The agent invents new quests when fewer than 3 are open.
+          </div></template
+        >
+      </div>
+    </section>
+
+    <!-- ============ RUN LOG ============ -->
+    <section class="glass runs">
+      <div class="panel-head">
+        <span class="eyebrow">Run log</span>
+        <span class="chip">every run is recorded in Agent_Run_Log__c</span>
+      </div>
+      <template lwc:if={hasRuns}>
+        <ul class="run-list">
+          <template for:each={runs} for:item="r">
+            <li key={r.id}>
+              <span class={r.dotClass}></span>
+              <span class="run-date">{r.date}</span>
+              <span class="run-status">{r.label}</span>
+              <span class="run-quest">{r.quest}</span>
+              <template lwc:if={r.releaseTag}
+                ><span class="run-tag">{r.releaseTag}</span></template
+              >
+              <template lwc:if={r.hasError}
+                ><span class="run-err" title={r.error}>error</span></template
+              >
+            </li>
+          </template>
+        </ul>
+      </template>
+      <template lwc:else
+        ><div class="empty">
+          No runs yet. The first scheduled run fires at 13:30 IST.
+        </div></template
+      >
+    </section>
+
+    <!-- ============ ADMIN ============ -->
+    <template lwc:if={showAdmin}>
+      <section class="glass admin">
+        <div class="panel-head">
+          <span class="eyebrow">Mission control · admin only</span>
+          <button
+            class="btn btn-primary"
+            disabled={runDisabled}
+            onclick={handleRunNow}
+            aria-label="Trigger run now"
+          >
+            ▶ Trigger run now
+          </button>
+        </div>
+        <div class="admin-form">
+          <input
+            class="inp grow"
+            aria-label="Quest title"
+            placeholder="Quest title — e.g. Add an LRU cache with O(1) get/put"
+            data-field="questTitle"
+            value={questTitle}
+            oninput={handleInput}
+          />
+          <select
+            class="inp"
+            aria-label="Quest type"
+            data-field="questType"
+            onchange={handleInput}
+          >
+            <template for:each={typeOptions} for:item="o">
+              <option key={o.value} value={o.value} selected={o.selected}>
+                {o.label}
+              </option>
+            </template>
+          </select>
+          <select
+            class="inp"
+            aria-label="Priority"
+            data-field="questPriority"
+            onchange={handleInput}
+          >
+            <template for:each={priorityOptions} for:item="o">
+              <option key={o.value} value={o.value} selected={o.selected}>
+                {o.label}
+              </option>
+            </template>
+          </select>
+          <textarea
+            class="inp full"
+            rows="3"
+            aria-label="Acceptance criteria"
+            placeholder="Acceptance criteria (markdown)"
+            data-field="questDescription"
+            oninput={handleInput}
+          ></textarea>
+          <button
+            class="btn"
+            disabled={queueDisabled}
+            onclick={handleQueueQuest}
+            aria-label="Queue quest"
+          >
+            ＋ Queue quest
+          </button>
+        </div>
+      </section>
+    </template>
+
+    <footer class="foot">
+      <span
+        >Planned, coded, reviewed and merged autonomously by Salesforce Apex +
+        Einstein Models API.</span
+      >
+      <span>Experience Cloud LWR · GitHub Actions watchdog failover</span>
+    </footer>
+
+    <template lwc:if={toast}
+      ><div class={toast.cls}>{toast.message}</div></template
+    >
+  </div>
+</template>

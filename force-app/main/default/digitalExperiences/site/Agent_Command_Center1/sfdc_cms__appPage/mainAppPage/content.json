@@ -1,0 +1,12 @@
+{
+  "type" : "sfdc_cms__appPage",
+  "title" : "main",
+  "contentBody" : {
+    "currentThemeId" : "Build_Your_Own_LWR",
+    "headMarkup" : "<title>Agent Command Center · Autonomous Dev Agent</title>\n<meta name=\"description\" content=\"An autonomous AI developer built on Salesforce Apex + Einstein that ships one reviewed, tested pull request to GitHub every day.\"/>\n<meta name=\"theme-color\" content=\"#0d1117\"/>\n<meta property=\"og:title\" content=\"Agent Command Center\"/>\n<meta property=\"og:description\" content=\"Live telemetry for a 2-year autonomous GitHub streak.\"/>\n\n<!-- branding stylesheets -->\n\r\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/slds/salesforce-lightning-design-system-part1.css?{ versionKey }\"/>\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/slds/salesforce-lightning-design-system-part2.css?{ versionKey }\"/>\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/slds/salesforce-lightning-design-system-part3.css?{ versionKey }\"/>\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/slds/salesforce-lightning-design-system-part4.css?{ versionKey }\"/>\r\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/dxp-site-spacing-styling-hooks.min.css?{ versionKey }\" />\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/dxp-styling-hooks.min.css?{ versionKey }\" />\n<link rel=\"stylesheet\" href=\"{ basePath }/assets/styles/dxp-slds-extensions.min.css?{ versionKey }\" />\n\n\n\n<!-- branding stylesheets-->\n\n<link rel=\"stylesheet\" href=\"{ styles/styles.css }\" />\n<link rel=\"stylesheet\" href=\"{ styles/print.css }\" media=\"print\"/>\n\n<style id=\"agent-dark\">html,body{background:#0d1117 !important;margin:0;color-scheme:dark;} .slds-template__container,.siteforceContentArea,main,.comm-section-container,.comm-layout-column{background:transparent !important;padding:0 !important;max-width:none !important;}</style>\n",
+    "isLockerServiceEnabled" : true,
+    "isRelaxedCSPLevel" : false,
+    "templateName" : "talon-template-byo"
+  },
+  "urlName" : "main"
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <isLicensed>false</isLicensed>
+    <label>Agent Command Admin</label>
+    <description
+  >Can trigger agent runs and queue custom quests from the dashboard.</description>
+</CustomPermission>

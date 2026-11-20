@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<DigitalExperienceConfig xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Agent Command Center</label>
+    <site>
+        <urlPathPrefix>agent</urlPathPrefix>
+    </site>
+    <space>site/Agent_Command_Center1</space>
+</DigitalExperienceConfig>

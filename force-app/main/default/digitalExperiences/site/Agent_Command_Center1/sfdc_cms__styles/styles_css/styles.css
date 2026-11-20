@@ -1,0 +1,15 @@
+/* Agent Command Center — global dark canvas */
+html,
+body {
+    height: 100%;
+}
+
+html,
+body {
+    background: #0d1117;
+    color-scheme: dark;
+}
+
+body {
+    margin: 0;
+}
