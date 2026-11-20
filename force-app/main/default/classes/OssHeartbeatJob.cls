@@ -23,5 +23,10 @@ public with sharing class OssHeartbeatJob implements Queueable, Database.AllowsC
       );
     }
     AgentEventLogger.flush();
+    try {
+      AgentDataJanitor.run();
+    } catch (Exception e) {
+      System.debug(LoggingLevel.WARN, 'Janitor skipped: ' + e.getMessage());
+    }
   }
 }

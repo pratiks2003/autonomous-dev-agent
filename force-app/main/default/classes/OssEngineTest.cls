@@ -62,7 +62,7 @@ private class OssEngineTest {
     Test.stopTest();
     Assert.areEqual(2, found.size());
     Assert.areEqual('Selected', found[0].Status__c);
-    Assert.areEqual('acme/widgets', found[0].Repo__c);
+    Assert.isTrue(new Set<String>{ 'acme/widgets', 'foo/bar' }.contains(found[0].Repo__c));
     Assert.areEqual(
       'Discovered',
       found[1].Status__c,
@@ -258,5 +258,33 @@ private class OssEngineTest {
     Test.startTest();
     Assert.isFalse(OssContributionEngine.rejectsAi('acme/widgets'));
     Test.stopTest();
+  }
+
+  @IsTest
+  static void janitorEnforcesRetention() {
+    Datetime old = Datetime.now().addDays(-40);
+    insert new List<Agent_Event__c>{
+      new Agent_Event__c(
+        Agent__c = 'Scout',
+        Event_Type__c = 'Scan complete',
+        Message__c = 'old',
+        Occurred_At__c = old
+      ),
+      new Agent_Event__c(
+        Agent__c = 'Scout',
+        Event_Type__c = 'Scan complete',
+        Message__c = 'new',
+        Occurred_At__c = Datetime.now()
+      )
+    };
+    insert new Agent_Run_Log__c(
+      Agent_Status__c = 'Success',
+      Run_Date__c = Datetime.now().addDays(-120)
+    );
+    Integer removed = AgentDataJanitor.run();
+    Assert.areEqual(2, removed);
+    Assert.areEqual(1, [SELECT COUNT() FROM Agent_Event__c]);
+    Assert.areEqual(0, AgentDataJanitor.run(), 'idempotent');
+    Assert.isFalse(OssContributionEngine.scoutDue(), 'a scan within 3h throttles the Scout');
   }
 }

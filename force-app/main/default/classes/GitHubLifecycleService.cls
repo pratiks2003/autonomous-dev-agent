@@ -294,6 +294,22 @@ public with sharing class GitHubLifecycleService {
 
   // ------------------------------------------------------------------ Weekly semantic release
 
+  /** Next minor number from the latest GitHub release tag (v1.N.0 -> N+1); 1 when none exists. */
+  public static Integer nextReleaseWeek() {
+    AgentHttp.Result r = AgentHttp.github(
+      'GET',
+      '/repos/' + AgentConfig.get().fullRepo() + '/releases/latest',
+      null
+    );
+    if (!r.ok()) {
+      return 1;
+    }
+    String tag = String.valueOf(r.json().get('tag_name'));
+    Matcher m = Pattern.compile('v\\d+\\.(\\d+)\\.')
+      .matcher(tag == null ? '' : tag);
+    return m.find() ? Integer.valueOf(m.group(1)) + 1 : 1;
+  }
+
   public static String publishRelease(Integer week, String notes) {
     AgentConfig cfg = AgentConfig.get();
     String tag = 'v1.' + week + '.0';

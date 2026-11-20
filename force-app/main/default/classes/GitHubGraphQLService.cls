@@ -162,11 +162,31 @@ public with sharing class GitHubGraphQLService {
           'prs' => cc.get('totalPullRequestContributions'),
           'issues' => cc.get('totalIssueContributions'),
           'reviews' => cc.get('totalPullRequestReviewContributions'),
-          'total' => cal.get('totalContributions')
+          'total' => cal.get('totalContributions'),
+          'shipped' => mergedAgentPrs(login)
         },
         'days' => days
       }
     );
+  }
+
+  /** Lifetime merged PRs authored by the owner in the agent repo (survives data retention). */
+  public static Integer mergedAgentPrs(String login) {
+    try {
+      String q =
+        'is:pr is:merged author:' +
+        login +
+        ' repo:' +
+        AgentConfig.get().fullRepo();
+      AgentHttp.Result r = AgentHttp.github(
+        'GET',
+        '/search/issues?per_page=1&q=' + EncodingUtil.urlEncode(q, 'UTF-8'),
+        null
+      );
+      return r.ok() ? (Integer) r.json().get('total_count') : null;
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   /** Returns true if auto-merge was enabled; false if GitHub refused (e.g. PR already mergeable/clean). */

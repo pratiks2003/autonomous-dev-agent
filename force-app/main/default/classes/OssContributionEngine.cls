@@ -159,7 +159,7 @@ public with sharing class OssContributionEngine {
       }
       c.Last_Step_At__c = Datetime.now();
       toUpsert.add(c);
-    } else if (cfg.enabled && canContribute()) {
+    } else if (cfg.enabled && scoutDue() && canContribute()) {
       toUpsert.addAll(scoutOrPromote(cfg));
     }
 
@@ -201,6 +201,28 @@ public with sharing class OssContributionEngine {
   }
 
   // ---------------------------------------------------------------------- Scout
+
+  /** Scans public GitHub at most every 3 hours (saves Einstein requests, API calls and storage). */
+  @TestVisible
+  private static Boolean scoutDue() {
+    Datetime cutoff = Datetime.now().addHours(-3);
+    Integer recent = [
+      SELECT COUNT()
+      FROM Agent_Event__c
+      WHERE
+        Agent__c = 'Scout'
+        AND Event_Type__c IN ('Scan complete', 'Selected issue')
+        AND Occurred_At__c >= :cutoff
+      WITH SECURITY_ENFORCED
+    ];
+    Integer radar = [
+      SELECT COUNT()
+      FROM OSS_Contribution__c
+      WHERE Status__c = 'Discovered'
+      WITH SECURITY_ENFORCED
+    ];
+    return recent == 0 || radar > 0;
+  }
 
   /**
    * Forking other people's repos and opening upstream PRs needs a classic token with the

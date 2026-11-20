@@ -16,16 +16,27 @@ public with sharing class AgentShipStage implements Queueable, Database.AllowsCa
 
     // ---------- reads
     String today = AgentPipelineState.todayKey();
-    Integer priorSuccess = [
+    // Release cadence without relying on old records (the janitor prunes logs after 90 days):
+    // due when the last N days had successful runs and no release was published in that window.
+    Datetime windowStart = Datetime.now().addDays(-cfg.releaseEveryNRuns);
+    Integer recentSuccess = [
       SELECT COUNT()
       FROM Agent_Run_Log__c
       WHERE
         Agent_Status__c IN ('Success', 'Self_Generated_Quest')
         AND Run_Key__c != :today
+        AND Run_Date__c >= :windowStart
       WITH SECURITY_ENFORCED
     ];
-    Integer runNumber = priorSuccess + 1;
-    Boolean releaseDue = Math.mod(runNumber, cfg.releaseEveryNRuns) == 0;
+    Integer recentReleases = [
+      SELECT COUNT()
+      FROM Agent_Run_Log__c
+      WHERE Release_Tag__c != NULL AND Run_Date__c >= :windowStart
+      WITH SECURITY_ENFORCED
+    ];
+    Boolean releaseDue =
+      recentSuccess >= cfg.releaseEveryNRuns - 1 &&
+      recentReleases == 0;
     List<Agent_Quest__c> recent = [
       SELECT Title__c, PR_Number__c, PR_Url__c, Quest_Type__c
       FROM Agent_Quest__c
@@ -64,7 +75,7 @@ public with sharing class AgentShipStage implements Queueable, Database.AllowsCa
 
     String releaseTag;
     if (releaseDue) {
-      Integer week = runNumber / cfg.releaseEveryNRuns;
+      Integer week = GitHubLifecycleService.nextReleaseWeek();
       String notes =
         '## 🚀 What shipped this week\n\n- ' +
         gen.get('prTitle') +

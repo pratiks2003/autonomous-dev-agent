@@ -161,6 +161,7 @@ public with sharing class AgentCommandCenterController {
     public Datetime latestReleaseDate;
     @AuraEnabled
     public Integer shippedTotal = 0;
+    public Integer lifetimeShipped;
     @AuraEnabled
     public Integer successRate = 0;
     @AuraEnabled
@@ -339,6 +340,9 @@ public with sharing class AgentCommandCenterController {
       } else if (q.Status__c == 'Queued' && d.planned.size() < 50) {
         d.planned.add(c);
       }
+    }
+    if (d.lifetimeShipped != null && d.lifetimeShipped > d.shippedTotal) {
+      d.shippedTotal = d.lifetimeShipped;
     }
     sortPlanned(d.planned);
     while (d.planned.size() > 6) {
@@ -579,6 +583,9 @@ public with sharing class AgentCommandCenterController {
     d.issues = toInt(totals.get('issues'));
     d.reviews = toInt(totals.get('reviews'));
     d.totalContributions = toInt(totals.get('total'));
+    if (totals.get('shipped') != null) {
+      d.lifetimeShipped = toInt(totals.get('shipped'));
+    }
     for (Object day : (List<Object>) snap.get('days')) {
       d.days.add((List<Object>) day);
     }
