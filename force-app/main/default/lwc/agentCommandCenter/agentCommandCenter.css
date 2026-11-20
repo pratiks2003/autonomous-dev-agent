@@ -1500,6 +1500,47 @@ a.stat:hover {
   align-self: stretch;
 }
 
+/* ---------------- tabs ---------------- */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: rgba(1, 4, 9, 0.6);
+  border: 1px solid var(--border);
+}
+.tab {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 13.5px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab-on {
+  background: #21262d;
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.tab-live.tab-on {
+  background: linear-gradient(
+    135deg,
+    rgba(88, 166, 255, 0.22),
+    rgba(57, 211, 83, 0.14)
+  );
+  box-shadow:
+    0 0 0 1px rgba(88, 166, 255, 0.45),
+    0 0 22px -8px rgba(88, 166, 255, 0.9);
+}
+
 /* ---------------- motion ---------------- */
 @keyframes pulse {
   0% {

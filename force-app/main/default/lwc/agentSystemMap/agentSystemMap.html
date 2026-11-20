@@ -1,0 +1,252 @@
+<template>
+  <section class="wrap">
+    <!-- ============ header: mode switch + caption ============ -->
+    <div class="bar">
+      <div class="segmented" role="tablist" aria-label="Map mode">
+        <button
+          class={liveBtnClass}
+          onclick={setLive}
+          role="tab"
+          aria-label="Live mode"
+        >
+          <span class="rec"></span>Live
+        </button>
+        <button
+          class={tourBtnClass}
+          onclick={setTour}
+          role="tab"
+          aria-label="Guided tour"
+        >
+          Guided tour
+        </button>
+      </div>
+      <template lwc:if={isLive}>
+        <div class="caption">
+          <template lwc:if={latest}>
+            <span class="cap-label">Happening now</span>
+            <span class="cap-agent">{latest.agent}</span>
+            <span class="cap-msg">{latest.message}</span>
+            <span class="cap-when">{latest.when}</span>
+          </template>
+          <template lwc:else>
+            <span class="cap-msg">Waiting for the squad's first move…</span>
+          </template>
+        </div>
+      </template>
+      <template lwc:else>
+        <div class="caption">
+          <span class="cap-label">{sceneCounter}</span>
+          <span class="cap-agent">{sceneTitle}</span>
+          <span class="cap-msg">{sceneCaption}</span>
+        </div>
+        <div class="controls">
+          <button class="ctl" onclick={prevScene} aria-label="Previous scene">
+            ‹
+          </button>
+          <button
+            class="ctl ctl-play"
+            onclick={togglePlay}
+            aria-label="Play or pause"
+          >
+            {playLabel}
+          </button>
+          <button class="ctl" onclick={nextScene} aria-label="Next scene">
+            ›
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <div class="grid">
+      <!-- ============ the system map ============ -->
+      <div class="map-card">
+        <svg
+          class="map"
+          viewBox={viewBox}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="Live system map"
+        >
+          <template for:each={zones} for:item="z">
+            <g key={z.key}>
+              <rect
+                x={z.x}
+                y={z.y}
+                width={z.w}
+                height={z.h}
+                rx="22"
+                class={z.cls}
+              ></rect>
+              <text x={z.lx} y={z.ly} class="zone-label">{z.label}</text>
+            </g>
+          </template>
+
+          <template for:each={edges} for:item="e">
+            <path key={e.id} d={e.d} class={e.cls}></path>
+          </template>
+
+          <template for:each={packets} for:item="p">
+            <circle
+              key={p.key}
+              data-edge={p.edge}
+              data-offset={p.offset}
+              r="4.5"
+              cx="-20"
+              cy="-20"
+              class="packet"
+            ></circle>
+          </template>
+
+          <template for:each={nodes} for:item="n">
+            <g key={n.key} transform={n.transform} class={n.cls}>
+              <template lwc:if={n.showHalo}>
+                <circle r={n.haloR} class="halo"></circle>
+              </template>
+              <rect
+                x={n.rx}
+                y={n.ry}
+                width={n.w}
+                height={n.h}
+                rx="14"
+                class="node-box"
+              ></rect>
+              <text x={n.emojiX} y="7" class="node-emoji" text-anchor="middle">
+                {n.emoji}
+              </text>
+              <text x={n.textX} y="-3" class="node-label">{n.label}</text>
+              <text x={n.textX} y="14" class="node-sub">{n.sub}</text>
+            </g>
+          </template>
+        </svg>
+
+        <template lwc:if={isLive}>
+          <div class="legend-row">
+            <span
+              ><i class="lg lg-live"></i>Agent active in the last 20 min</span
+            >
+            <span><i class="lg lg-flow"></i>Data flowing</span>
+            <span class="active-names">{activeLabel}</span>
+          </div>
+        </template>
+        <template lwc:else>
+          <div class="dots">
+            <template for:each={sceneDots} for:item="d">
+              <button
+                key={d.key}
+                class={d.cls}
+                data-idx={d.idx}
+                onclick={jumpScene}
+                aria-label={d.label}
+                title={d.label}
+              ></button>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- ============ right rail: now + day ring ============ -->
+      <aside class="rail">
+        <div class="card">
+          <div class="eyebrow">Right now</div>
+          <div class="now-big">
+            <span class="num">{activeCount}</span> agents active
+          </div>
+          <div class="row">
+            <span class="k">🧰 Daily mission</span
+            ><span class="v">{missionCard.status}</span>
+          </div>
+          <div class="row">
+            <span class="k">⏱ Next mission</span
+            ><span class="v mono">{missionCard.next}</span>
+          </div>
+          <div class="row">
+            <span class="k">💓 Next heartbeat</span
+            ><span class="v mono">{heartbeatIn}</span>
+          </div>
+          <div class="row">
+            <span class="k">🌍 Open source</span
+            ><span class="v">{ossCard.status}</span>
+          </div>
+          <div class="row small">
+            <template lwc:if={ossCard.url}>
+              <a href={ossCard.url} target="_blank" rel="noopener"
+                >{ossCard.repo} ↗</a
+              >
+            </template>
+            <template lwc:else><span class="v">{ossCard.repo}</span></template>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="eyebrow">The squad's day · IST</div>
+          <svg
+            class="ring"
+            viewBox="0 0 300 300"
+            role="img"
+            aria-label="24 hour schedule"
+          >
+            <circle
+              cx={ring.cx}
+              cy={ring.cy}
+              r={ring.r}
+              class="ring-track"
+            ></circle>
+            <template for:each={ring.ticks} for:item="t">
+              <line
+                key={t.key}
+                x1={t.x1}
+                y1={t.y1}
+                x2={t.x2}
+                y2={t.y2}
+                class="ring-tick"
+              ></line>
+            </template>
+            <template for:each={ring.hours} for:item="h">
+              <text
+                key={h.key}
+                x={h.x}
+                y={h.y}
+                class="ring-hour"
+                text-anchor="middle"
+                dominant-baseline="middle"
+              >
+                {h.label}
+              </text>
+            </template>
+            <template for:each={ring.marks} for:item="m">
+              <g key={m.key} class={m.cls}>
+                <circle cx={m.x} cy={m.y} r="7"></circle>
+                <text
+                  x={m.lx}
+                  y={m.ly}
+                  text-anchor="middle"
+                  dominant-baseline="middle"
+                  class="mark-label"
+                >
+                  {m.label}
+                </text>
+              </g>
+            </template>
+            <line
+              x1={ring.cx}
+              y1={ring.cy}
+              x2={ring.nx}
+              y2={ring.ny}
+              class="needle"
+            ></line>
+            <circle cx={ring.cx} cy={ring.cy} r="5" class="needle-hub"></circle>
+            <text x={ring.cx} y="175" class="ring-now" text-anchor="middle">
+              {ring.time}
+            </text>
+          </svg>
+          <div class="ring-legend">
+            <span><i class="lg lg-mission"></i>13:30 mission</span>
+            <span><i class="lg lg-brief"></i>briefings</span>
+            <span><i class="lg lg-watch"></i>01:30 watchdog</span>
+            <span><i class="lg lg-tick"></i>heartbeats</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</template>

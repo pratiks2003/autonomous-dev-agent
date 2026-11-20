@@ -96,6 +96,7 @@ export default class AgentCommandCenter extends LightningElement {
   questDescription = "";
   questType = "Feature";
   questPriority = "1";
+  activeTab = "command";
   chatOpen = false;
   chatInput = "";
   chatBusy = false;
@@ -122,6 +123,13 @@ export default class AgentCommandCenter extends LightningElement {
   }
 
   connectedCallback() {
+    try {
+      const saved = window.localStorage.getItem("acc.tab");
+      if (saved === "map" || saved === "command") this.activeTab = saved;
+      if (window.location.hash === "#how-it-works") this.activeTab = "map";
+    } catch {
+      // storage unavailable (private mode) — default tab
+    }
     this.tick();
     // eslint-disable-next-line @lwc/lwc/no-async-operation
     this._clock = setInterval(() => this.tick(), 1000);
@@ -717,6 +725,25 @@ export default class AgentCommandCenter extends LightningElement {
     const today = istIso(new Date()).substring(0, 10);
     const yday = istIso(new Date(Date.now() - 86400000)).substring(0, 10);
     return d === today ? "Today" : d === yday ? "Yesterday" : d.substring(5);
+  }
+
+  // ------------------------------------------------------------ tabs
+  get isMapTab() {
+    return this.activeTab === "map";
+  }
+  get commandTabClass() {
+    return this.activeTab === "command" ? "tab tab-on" : "tab";
+  }
+  get mapTabClass() {
+    return this.activeTab === "map" ? "tab tab-on tab-live" : "tab tab-live";
+  }
+  handleTab(event) {
+    this.activeTab = event.currentTarget.dataset.tab;
+    try {
+      window.localStorage.setItem("acc.tab", this.activeTab);
+    } catch {
+      // storage unavailable — tab choice simply isn't remembered
+    }
   }
 
   // ------------------------------------------------------------ utils
