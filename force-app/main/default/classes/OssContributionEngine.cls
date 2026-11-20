@@ -117,6 +117,33 @@ public with sharing class OssContributionEngine {
       try {
         advance(c, cfg, openedLastDay);
       } catch (Exception e) {
+        if (
+          c.Status__c == 'Forked' &&
+          (c.Attempts__c == null ||
+          c.Attempts__c < 1)
+        ) {
+          c.Attempts__c = (c.Attempts__c == null ? 0 : c.Attempts__c) + 1;
+          c.Review_Notes__c =
+            'Your previous attempt was rejected by the pipeline: ' +
+            e.getMessage() +
+            '. Only edit files shown under Relevant code, copy find anchors verbatim, keep the change minimal.';
+          AgentEventLogger.warn(
+            'Engineer',
+            'Retrying',
+            c.Repo__c +
+              '#' +
+              c.Issue_Number__c.intValue() +
+              ' — first attempt rejected (' +
+              AgentHttp.abbreviate(e.getMessage(), 90) +
+              '); retrying.',
+            null
+          );
+          c.Last_Step_At__c = Datetime.now();
+          toUpsert.add(c);
+          upsert toUpsert;
+          AgentEventLogger.flush();
+          return;
+        }
         c.Status__c = 'Failed';
         c.Skip_Reason__c = AgentHttp.abbreviate(e.getMessage(), 250);
         AgentEventLogger.error(
@@ -264,72 +291,87 @@ public with sharing class OssContributionEngine {
       Math.mod(Date.today().dayOfYear(), LANGUAGES.size())
     ];
     Set<String> avoid = reposToAvoid();
-    String since = Datetime.now().addDays(-90).formatGmt('yyyy-MM-dd');
-    String q =
-      'label:"good first issue" state:open type:issue no:assignee archived:false comments:<6 language:' +
+    List<Map<String, Object>> vetted = new List<Map<String, Object>>();
+    String pushedSince = Datetime.now().addDays(-14).formatGmt('yyyy-MM-dd');
+    String rq =
+      'language:' +
       language +
-      ' created:>' +
-      since;
-    Map<String, Object> res = AgentHttp.require(
+      ' stars:200..30000 good-first-issues:>2 archived:false pushed:>' +
+      pushedSince;
+    Map<String, Object> repoSearch = AgentHttp.require(
         AgentHttp.github(
           'GET',
-          '/search/issues?sort=created&order=desc&per_page=25&q=' +
-          EncodingUtil.urlEncode(q, 'UTF-8'),
+          '/search/repositories?sort=updated&order=desc&per_page=40&q=' +
+          EncodingUtil.urlEncode(rq, 'UTF-8'),
           null
         ),
-        'Issue search'
+        'Repository search'
       )
       .json();
-    List<Map<String, Object>> candidates = new List<Map<String, Object>>();
-    for (Object o : (List<Object>) res.get('items')) {
-      Map<String, Object> item = (Map<String, Object>) o;
-      String repo = ((String) item.get('repository_url'))
-        .substringAfter('/repos/');
+    List<Object> repos = (List<Object>) repoSearch.get('items');
+    Integer offset = repos.isEmpty()
+      ? 0
+      : Math.mod(Datetime.now().hourGmt() * 7, repos.size());
+    Integer inspected = 0;
+    for (
+      Integer k = 0;
+      k < repos.size() &&
+      inspected < 16 &&
+      vetted.size() < 10 &&
+      Limits.getCallouts() < 80;
+      k++
+    ) {
+      Map<String, Object> meta = (Map<String, Object>) repos[
+        Math.mod(k + offset, repos.size())
+      ];
+      String repo = (String) meta.get('full_name');
       if (
         avoid.contains(repo.toLowerCase()) ||
         repo.startsWithIgnoreCase(cfg.owner + '/')
       ) {
         continue;
       }
-      avoid.add(repo.toLowerCase()); // one candidate per repo
-      item.put('_repo', repo);
-      candidates.add(item);
-      if (candidates.size() >= 6) {
-        break;
-      }
-    }
-
-    List<Map<String, Object>> vetted = new List<Map<String, Object>>();
-    for (Map<String, Object> item : candidates) {
-      String repo = (String) item.get('_repo');
-      AgentHttp.Result repoRes = AgentHttp.github(
+      inspected++;
+      AgentHttp.Result issuesRes = AgentHttp.github(
         'GET',
-        '/repos/' + repo,
+        '/repos/' +
+          repo +
+          '/issues?state=open&assignee=none&sort=created&direction=desc&per_page=15&labels=' +
+          EncodingUtil.urlEncode('good first issue', 'UTF-8'),
         null
       );
-      if (!repoRes.ok()) {
+      if (!issuesRes.ok()) {
         continue;
       }
-      Map<String, Object> meta = repoRes.json();
-      Integer stars = (Integer) meta.get('stargazers_count');
-      Datetime pushed = GitHubLifecycleService.parseGitHubDate(
-        (String) meta.get('pushed_at')
-      );
-      if (
-        stars < MIN_STARS ||
-        meta.get('archived') == true ||
-        pushed < Datetime.now().addDays(-60)
-      ) {
+      List<Map<String, Object>> picks = new List<Map<String, Object>>();
+      for (Object io : issuesRes.jsonList()) {
+        Map<String, Object> it = (Map<String, Object>) io;
+        if (
+          it.get('pull_request') == null &&
+          (Integer) it.get('comments') < 8 &&
+          String.isNotBlank((String) it.get('body'))
+        ) {
+          picks.add(it);
+        }
+        if (picks.size() >= 2) {
+          break;
+        }
+      }
+      if (picks.isEmpty() || rejectsAi(repo)) {
         continue;
       }
-      if (
-        rejectsAi(repo) || hasLinkedOpenPr(repo, (Integer) item.get('number'))
-      ) {
-        continue;
+      for (Map<String, Object> it : picks) {
+        if (
+          Limits.getCallouts() >= 85 ||
+          hasLinkedOpenPr(repo, (Integer) it.get('number'))
+        ) {
+          continue;
+        }
+        it.put('_repo', repo);
+        it.put('_stars', meta.get('stargazers_count'));
+        it.put('_default_branch', meta.get('default_branch'));
+        vetted.add(it);
       }
-      item.put('_stars', stars);
-      item.put('_default_branch', meta.get('default_branch'));
-      vetted.add(item);
     }
     if (vetted.isEmpty()) {
       AgentEventLogger.info(
@@ -377,7 +419,7 @@ public with sharing class OssContributionEngine {
       Map<String, Object> r = (Map<String, Object>) o;
       Integer idx = Integer.valueOf(String.valueOf(r.get('index')));
       Integer score = Integer.valueOf(String.valueOf(r.get('score')));
-      if (idx < 0 || idx >= vetted.size() || score < 6 || out.size() >= 4) {
+      if (idx < 0 || idx >= vetted.size() || score < 7 || out.size() >= 4) {
         continue;
       }
       Map<String, Object> v = vetted[idx];
@@ -602,13 +644,29 @@ public with sharing class OssContributionEngine {
         }
       }
     }
+    // Agentic retrieval: the model chooses which files it needs from the repo map.
+    List<String> candidates = new List<String>(picked);
     for (String p : rankPaths(paths, keywords)) {
-      if (picked.size() >= 5) {
-        break;
+      if (!candidates.contains(p)) {
+        candidates.add(p);
       }
-      if (!picked.contains(p)) {
-        picked.add(p);
+    }
+    for (String p : paths) {
+      if (!candidates.contains(p)) {
+        candidates.add(p);
       }
+    }
+    String repoMap = AgentHttp.abbreviate(String.join(candidates, '\n'), 9000);
+    picked = selectFiles(c, repoMap, new Set<String>(paths));
+    if (picked.isEmpty()) {
+      picked = candidates.size() > 4
+        ? new List<String>{
+            candidates[0],
+            candidates[1],
+            candidates[2],
+            candidates[3]
+          }
+        : candidates;
     }
     String context = '';
     Map<String, String> originals = new Map<String, String>();
@@ -635,7 +693,7 @@ public with sharing class OssContributionEngine {
         ' engineer contributing to an open-source project you do not own. ' +
         'Resolve the issue with the smallest correct change, matching the project style exactly. Touch at most 3 existing or new files. ' +
         'Add or update a test when the project has tests. Never modify CI, lockfiles, licenses, or unrelated code. ' +
-        'Return COMPLETE file contents for every file you change. Write the PR like a thoughtful human contributor: concise, specific, no hype.',
+        'Express changes to existing files as exact search/replace edits: "find" must be copied verbatim from the file shown (enough lines to be unique) and "replace" is the new text. Only edit files shown under Relevant code, using their exact paths. Only brand-new small files may be given in full. Write the PR like a thoughtful human contributor: concise, specific, no hype.',
       '## Issue #' +
         c.Issue_Number__c.intValue() +
         ' in ' +
@@ -654,57 +712,48 @@ public with sharing class OssContributionEngine {
         AgentHttp.abbreviate(String.join(paths, '\n'), 5000) +
         '\n\n## Relevant code\n' +
         context +
-        '\n\nReturn: "files" as a JSON array of {"path": string, "content": string}; "summary" (2-4 sentences); ' +
+        '\n\nReturn: "edits" as a JSON array of {"path": string, "find": string, "replace": string} (max 6 edits); ' +
+        '"newFiles" as a JSON array of {"path": string, "content": string} (may be empty); "summary" (2-4 sentences); ' +
         '"prTitle" (conventional, <= 72 chars); "prBody" (markdown: what/why/how tested, no AI mention); "commitMessage".',
       new List<String>{
-        'files',
+        'edits',
+        'newFiles',
         'summary',
         'prTitle',
         'prBody',
         'commitMessage'
       }
     );
-    List<Object> files = (List<Object>) out.get('files');
-    if (files == null || files.isEmpty() || files.size() > 3) {
-      throw new EngineException(
-        'Engineer produced ' +
-          (files == null ? 0 : files.size()) +
-          ' files (expected 1-3).'
-      );
-    }
-    for (Object o : files) {
-      Map<String, Object> f = (Map<String, Object>) o;
-      String p = (String) f.get('path');
-      if (
-        !isSafeContributionPath(p) || String.isBlank((String) f.get('content'))
-      ) {
-        throw new EngineException('Unsafe or empty file in change: ' + p);
-      }
-    }
-    for (Object o : files) {
-      Map<String, Object> f = (Map<String, Object>) o;
+    Map<String, String> changed = applyEdits(c, out, originals);
+    for (String path : changed.keySet()) {
       GitHubLifecycleService.putFile(
         '/repos/' + c.Fork__c,
         c.Branch__c,
-        (String) f.get('path'),
-        (String) f.get('content'),
+        path,
+        changed.get(path),
         (String) out.get('commitMessage')
       );
     }
     Map<String, Object> stored = new Map<String, Object>{
-      'files' => files,
-      'originals' => originals,
+      'edits' => out.get('edits'),
+      'newFiles' => out.get('newFiles'),
       'prTitle' => out.get('prTitle'),
       'prBody' => out.get('prBody')
     };
-    c.Generated_Json__c = AgentHttp.abbreviate(JSON.serialize(stored), 130000);
+    String storedJson = JSON.serialize(stored);
+    if (storedJson.length() > 130000) {
+      throw new EngineException(
+        'Change too large to store (' + storedJson.length() + ' chars).'
+      );
+    }
+    c.Generated_Json__c = storedJson;
     c.Fix_Summary__c = (String) out.get('summary');
     c.Status__c = 'Fix_Ready';
     AgentEventLogger.info(
       'Engineer',
       'Fix committed',
       'Wrote a ' +
-        files.size() +
+        changed.size() +
         '-file fix for ' +
         c.Repo__c +
         '#' +
@@ -713,6 +762,120 @@ public with sharing class OssContributionEngine {
         AgentHttp.abbreviate(c.Fix_Summary__c, 140),
       'https://github.com/' + c.Fork__c + '/tree/' + c.Branch__c
     );
+  }
+
+  /** Step 1 of agentic RAG: ask the model which (existing) files it must read to fix the issue. */
+  @TestVisible
+  private static List<String> selectFiles(
+    OSS_Contribution__c c,
+    String repoMap,
+    Set<String> existing
+  ) {
+    List<String> out = new List<String>();
+    try {
+      Map<String, Object> sel = AgentLLMClient.createJson(
+        'You are planning a minimal fix in an open-source repository. From the repository map, choose the files you must read ' +
+        'and probably edit to resolve the issue (implementation first, then the closest existing test).',
+        '## Issue: ' +
+          c.Issue_Title__c +
+          '\n' +
+          AgentHttp.abbreviate(c.Issue_Body__c, 3000) +
+          '\n\n## Repository map (most relevant first)\n' +
+          repoMap +
+          '\n\nReturn "paths" as a JSON array of 1-4 exact paths copied from the map.',
+        new List<String>{ 'paths' }
+      );
+      if (sel.get('paths') instanceof List<Object>) {
+        for (Object o : (List<Object>) sel.get('paths')) {
+          String p = String.valueOf(o).trim();
+          if (existing.contains(p) && !out.contains(p) && out.size() < 4) {
+            out.add(p);
+          }
+        }
+      }
+    } catch (Exception e) {
+      System.debug(
+        LoggingLevel.WARN,
+        'File selection fell back to keyword ranking: ' + e.getMessage()
+      );
+    }
+    return out;
+  }
+
+  /** Applies search/replace edits (each find must match exactly once) and new files. Returns path -> new content. */
+  @TestVisible
+  private static Map<String, String> applyEdits(
+    OSS_Contribution__c c,
+    Map<String, Object> out,
+    Map<String, String> originals
+  ) {
+    Map<String, String> changed = new Map<String, String>();
+    List<Object> edits = out.get('edits') instanceof List<Object>
+      ? (List<Object>) out.get('edits')
+      : new List<Object>();
+    List<Object> newFiles = out.get('newFiles') instanceof List<Object>
+      ? (List<Object>) out.get('newFiles')
+      : new List<Object>();
+    if (edits.isEmpty() && newFiles.isEmpty()) {
+      throw new EngineException('Engineer produced no changes.');
+    }
+    if (edits.size() > 6) {
+      throw new EngineException('Too many edits (' + edits.size() + ').');
+    }
+    for (Object o : edits) {
+      Map<String, Object> e = (Map<String, Object>) o;
+      String path = (String) e.get('path');
+      String find = (String) e.get('find');
+      String repl = e.get('replace') == null ? '' : (String) e.get('replace');
+      if (!isSafeContributionPath(path) || String.isBlank(find)) {
+        throw new EngineException('Unsafe or empty edit: ' + path);
+      }
+      String current = changed.containsKey(path)
+        ? changed.get(path)
+        : originals.get(path);
+      if (current == null) {
+        current = readFile(c.Repo__c, path, c.Base_Sha__c);
+        if (current == null) {
+          throw new EngineException(
+            'Edit targets a file that does not exist: ' + path
+          );
+        }
+        originals.put(path, current);
+      }
+      Integer first = current.indexOf(find);
+      if (first < 0 || current.indexOf(find, first + 1) >= 0) {
+        throw new EngineException(
+          'Edit anchor in ' +
+            path +
+            (first < 0 ? ' not found' : ' is not unique')
+        );
+      }
+      changed.put(
+        path,
+        current.substring(0, first) +
+          repl +
+          current.substring(first + find.length())
+      );
+    }
+    for (Object o : newFiles) {
+      Map<String, Object> f = (Map<String, Object>) o;
+      String path = (String) f.get('path');
+      String content = (String) f.get('content');
+      if (
+        !isSafeContributionPath(path) ||
+        String.isBlank(content) ||
+        originals.containsKey(path)
+      ) {
+        throw new EngineException('Invalid new file: ' + path);
+      }
+      changed.put(path, content);
+    }
+    if (changed.size() > 3) {
+      throw new EngineException(
+        'Change touches ' + changed.size() + ' files (max 3).'
+      );
+    }
+    return changed;
   }
 
   // ---------------------------------------------------------------------- Verifier
@@ -793,6 +956,7 @@ public with sharing class OssContributionEngine {
       .json();
     String tests = 'skipped';
     String staticCheck = 'skipped';
+    String install = 'skipped';
     for (Object jo : (List<Object>) jobs.get('jobs')) {
       for (Object so : (List<Object>) ((Map<String, Object>) jo).get('steps')) {
         Map<String, Object> step = (Map<String, Object>) so;
@@ -800,8 +964,23 @@ public with sharing class OssContributionEngine {
           tests = String.valueOf(step.get('conclusion'));
         } else if (step.get('name') == 'Static check') {
           staticCheck = String.valueOf(step.get('conclusion'));
+        } else if (step.get('name') == 'Install dependencies') {
+          install = String.valueOf(step.get('conclusion'));
         }
       }
+    }
+    if (install == 'failure') {
+      c.Status__c = 'Skipped';
+      c.Skip_Reason__c = 'Could not install the project in CI, so the fix cannot be verified';
+      AgentEventLogger.warn(
+        'Verifier',
+        'Cannot verify',
+        'Could not build ' +
+          c.Repo__c +
+          ' in CI — standing down rather than sending unverified code.',
+        c.Verify_Run_Url__c
+      );
+      return;
     }
     if (tests == 'success') {
       c.Test_Result__c = 'Passed';
@@ -870,21 +1049,30 @@ public with sharing class OssContributionEngine {
     Map<String, Object> stored = (Map<String, Object>) JSON.deserializeUntyped(
       c.Generated_Json__c
     );
-    Map<String, Object> originals = (Map<String, Object>) stored.get(
-      'originals'
-    );
     String diffView = '';
-    for (Object o : (List<Object>) stored.get('files')) {
-      Map<String, Object> f = (Map<String, Object>) o;
-      String p = (String) f.get('path');
-      diffView +=
-        '\n### ' +
-        p +
-        '\n--- BEFORE\n' +
-        AgentHttp.abbreviate((String) originals.get(p), 6000) +
-        '\n--- AFTER\n' +
-        AgentHttp.abbreviate((String) f.get('content'), 6000) +
-        '\n';
+    if (stored.get('edits') instanceof List<Object>) {
+      for (Object o : (List<Object>) stored.get('edits')) {
+        Map<String, Object> e = (Map<String, Object>) o;
+        diffView +=
+          '\n### ' +
+          e.get('path') +
+          '\n--- BEFORE\n' +
+          AgentHttp.abbreviate((String) e.get('find'), 4000) +
+          '\n--- AFTER\n' +
+          AgentHttp.abbreviate((String) e.get('replace'), 4000) +
+          '\n';
+      }
+    }
+    if (stored.get('newFiles') instanceof List<Object>) {
+      for (Object o : (List<Object>) stored.get('newFiles')) {
+        Map<String, Object> f = (Map<String, Object>) o;
+        diffView +=
+          '\n### NEW FILE ' +
+          f.get('path') +
+          '\n' +
+          AgentHttp.abbreviate((String) f.get('content'), 6000) +
+          '\n';
+      }
     }
     Map<String, Object> verdict = AgentLLMClient.createJson(
       'You are an exacting open-source maintainer reviewing a pull request from a new contributor. Approve only if the change ' +

@@ -26,6 +26,26 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
       res.setBody('{"login":"pratiks2003"}');
       return res;
     }
+    if (url.contains('/search/repositories')) {
+      res.setBody(
+        '{"items":[{"full_name":"acme/widgets","stargazers_count":500,"default_branch":"main"},' +
+        '{"full_name":"foo/bar","stargazers_count":300,"default_branch":"main"}]}'
+      );
+      return res;
+    }
+    if (method == 'GET' && url.contains('/issues?state=open')) {
+      Boolean acme = url.contains('acme/widgets');
+      res.setBody(
+        '[{"number":' +
+          (acme ? '7' : '9') +
+          ',"title":"' +
+          (acme ? 'Handle empty input in parseDuration' : 'Docs typo') +
+          '","body":"details","comments":1,"html_url":"https://github.com/' +
+          (acme ? 'acme/widgets/issues/7' : 'foo/bar/issues/9') +
+          '"}]'
+      );
+      return res;
+    }
     if (url.contains('/search/issues')) {
       res.setBody(
         '{"items":[' +
@@ -128,6 +148,16 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
           ) +
           '"}'
       );
+    } else if (method == 'GET' && url.contains('/contents/src/duration.ts')) {
+      res.setBody(
+        '{"sha":"d1","content":"' +
+          EncodingUtil.base64Encode(
+            Blob.valueOf(
+              'export const parseDuration = (s: string) => Number(s);\n'
+            )
+          ) +
+          '"}'
+      );
     } else if (method == 'GET' && url.contains('/contents/')) {
       res.setStatusCode(404);
       res.setBody('{"message":"Not Found"}');
@@ -201,13 +231,23 @@ public class AgentMockRouter implements HttpCalloutMock, AgentLLMClient.Provider
     if (prompt.contains('You are the Scout')) {
       return '{"ranking":[{"index":0,"score":9,"reason":"Clear, small fix"},{"index":1,"score":7,"reason":"Trivial docs"}]}';
     }
+    if (prompt.contains('choose the files you must read')) {
+      return '{"paths":["src/duration.ts","tests/duration.test.ts"]}';
+    }
     if (prompt.contains('contributing to an open-source project')) {
       return JSON.serialize(
         new Map<String, Object>{
-          'files' => new List<Object>{
+          'edits' => new List<Object>{
             new Map<String, Object>{
               'path' => 'src/duration.ts',
-              'content' => 'export const parseDuration = (s: string) => (s ? 1 : 0);'
+              'find' => 'Number(s)',
+              'replace' => '(s ? Number(s) : 0)'
+            }
+          },
+          'newFiles' => new List<Object>{
+            new Map<String, Object>{
+              'path' => 'tests/empty.test.ts',
+              'content' => 'test("empty", () => {});'
             }
           },
           'summary' => 'Return 0 for empty input.',
